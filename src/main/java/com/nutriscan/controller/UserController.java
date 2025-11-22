@@ -1,9 +1,11 @@
 package com.nutriscan.controller;
 
+import com.nutriscan.dto.request.UpdateProfileRequest;
 import com.nutriscan.dto.response.UserProfileResponse;
 import com.nutriscan.model.User;
 import com.nutriscan.security.CustomUserDetails;
 import com.nutriscan.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -38,6 +40,14 @@ public class UserController {
                 .createdAt(user.getCreatedAt())
                 .build();
 
+        return ResponseEntity.ok(response);
+    }
+    @PutMapping("/me")
+    public ResponseEntity<UserProfileResponse> updateProfile(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @Valid @RequestBody UpdateProfileRequest request
+    ) {
+        UserProfileResponse response = userService.updateProfile(currentUser.getId(), request);
         return ResponseEntity.ok(response);
     }
 }
