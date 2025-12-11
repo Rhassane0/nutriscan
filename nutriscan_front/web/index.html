@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="NutriScan - Application de nutrition et planification de repas">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="NutriScan">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>NutriScan</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Noto Color Emoji pour le support des emojis sur Flutter Web -->
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap" rel="stylesheet">
+
+  <style>
+    /* Fix pour les emojis sur Flutter Web */
+    .flt-text-editing::placeholder {
+      font-family: 'Noto Color Emoji', sans-serif;
+    }
+
+    /* Préchargement pour éviter le flash blanc */
+    html {
+      background-color: #0D1F1B;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Noto Color Emoji', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading indicator pendant le chargement de Flutter -->
+  <div id="loading" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #0D1F1B 0%, #1A3A32 50%, #0F2922 100%);
+    z-index: 1000;
+  ">
+    <div style="text-align: center;">
+      <div style="
+        font-size: 60px;
+        margin-bottom: 20px;
+        animation: pulse 1.5s ease-in-out infinite;
+      ">🥗</div>
+      <div style="
+        color: #00C853;
+        font-size: 24px;
+        font-weight: bold;
+        font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      ">NutriScan</div>
+      <div style="
+        color: rgba(255,255,255,0.6);
+        font-size: 14px;
+        margin-top: 10px;
+      ">Chargement...</div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.1); }
+    }
+  </style>
+
+  <script>
+    // Supprimer l'écran de chargement quand Flutter est prêt
+    window.addEventListener('flutter-first-frame', function() {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.opacity = '0';
+        loading.style.transition = 'opacity 0.3s ease-out';
+        setTimeout(() => loading.remove(), 300);
+      }
+    });
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

@@ -1,0 +1,1408 @@
+{
+  "info": {
+    "name": "NutriScan API - Complete Testing Collection v1.1.4",
+    "description": "Collection complète pour tester tous les endpoints de NutriScan v1.1.4 incluant Meal Planner, Grocery List Generator, endpoints /latest et recherche OpenFoodFacts",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "BASE_URL",
+      "value": "http://localhost:8082/api/v1"
+    },
+    {
+      "key": "token",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "mealPlanId",
+      "value": "",
+      "description": "ID of the generated meal plan (auto-filled by tests)"
+    },
+    {
+      "key": "groceryListId",
+      "value": "",
+      "description": "ID of the generated grocery list (auto-filled by tests)"
+    },
+    {
+      "key": "groceryItemId",
+      "value": "",
+      "description": "ID of a grocery item (auto-filled by tests)"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Test User\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/auth/register",
+              "host": ["{{BASE_URL}}"],
+              "path": ["auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"password123\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/auth/login",
+              "host": ["{{BASE_URL}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. User Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/users/profile",
+              "host": ["{{BASE_URL}}"],
+              "path": ["users", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gender\": \"MALE\",\n  \"age\": 30,\n  \"height\": 180,\n  \"weight\": 80,\n  \"activityLevel\": \"MODERATE\",\n  \"goal\": \"LOSE_WEIGHT\",\n  \"dietPreferences\": \"Balanced diet\",\n  \"allergies\": \"None\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/users/profile",
+              "host": ["{{BASE_URL}}"],
+              "path": ["users", "profile"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Goals & Targets",
+      "item": [
+        {
+          "name": "Get Goals",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/goals",
+              "host": ["{{BASE_URL}}"],
+              "path": ["goals"]
+            }
+          }
+        },
+        {
+          "name": "Set/Update Goals",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"targetCalories\": 2000,\n  \"proteinGr\": 120,\n  \"carbsGr\": 200,\n  \"fatGr\": 65\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/goals",
+              "host": ["{{BASE_URL}}"],
+              "path": ["goals"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Food Search",
+      "item": [
+        {
+          "name": "Search Natural Foods (Edamam)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/nutrition/search?query=apple",
+              "host": ["{{BASE_URL}}"],
+              "path": ["nutrition", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "apple"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Search Organic Foods (OpenFoodFacts)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/foods/search/organic?query=coca&limit=10",
+              "host": ["{{BASE_URL}}"],
+              "path": ["foods", "search", "organic"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "coca",
+                  "description": "Search term for OpenFoodFacts"
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Number of results (default: 20)"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test(\"Products have required fields\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.length > 0) {",
+                  "        pm.expect(jsonData[0]).to.have.property('code');",
+                  "        pm.expect(jsonData[0]).to.have.property('product');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Meals Management",
+      "item": [
+        {
+          "name": "Create Meal (with API foods)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2025-11-28\",\n  \"time\": \"12:30:00\",\n  \"mealType\": \"LUNCH\",\n  \"source\": \"MANUAL\",\n  \"items\": [\n    {\n      \"foodName\": \"apple raw\",\n      \"quantity\": 100,\n      \"servingUnit\": \"g\",\n      \"calories\": 52,\n      \"protein\": 0.26,\n      \"carbs\": 13.81,\n      \"fat\": 0.17\n    },\n    {\n      \"foodName\": \"chicken breast cooked\",\n      \"quantity\": 150,\n      \"servingUnit\": \"g\",\n      \"calories\": 165,\n      \"protein\": 31,\n      \"carbs\": 0,\n      \"fat\": 3.6\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/meals",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meals"]
+            }
+          }
+        },
+        {
+          "name": "Get Meals by Date",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/meals?date=2025-11-28",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meals"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2025-11-28"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Meal Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/meals/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meals", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Meal",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"date\": \"2025-11-28\",\n  \"time\": \"13:00:00\",\n  \"mealType\": \"LUNCH\",\n  \"source\": \"MANUAL\",\n  \"items\": [\n    {\n      \"foodName\": \"apple raw\",\n      \"quantity\": 150,\n      \"servingUnit\": \"g\",\n      \"calories\": 78,\n      \"protein\": 0.39,\n      \"carbs\": 20.71,\n      \"fat\": 0.26\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/meals/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meals", "1"]
+            }
+          }
+        },
+        {
+          "name": "Delete Meal",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/meals/1",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meals", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Analysis & Scores",
+      "item": [
+        {
+          "name": "Get Meal Scores (by date)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/analysis/meal-scores?date=2025-11-28",
+              "host": ["{{BASE_URL}}"],
+              "path": ["analysis", "meal-scores"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2025-11-28"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Detect Nutrition Patterns (7 days)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/analysis/patterns",
+              "host": ["{{BASE_URL}}"],
+              "path": ["analysis", "patterns"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Weight Tracking",
+      "item": [
+        {
+          "name": "Add Weight Entry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"weight\": 79.5,\n  \"date\": \"2025-11-28\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/tracking/weight",
+              "host": ["{{BASE_URL}}"],
+              "path": ["tracking", "weight"]
+            }
+          }
+        },
+        {
+          "name": "Get Weight History",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/tracking/weight-history",
+              "host": ["{{BASE_URL}}"],
+              "path": ["tracking", "weight-history"]
+            }
+          }
+        },
+        {
+          "name": "Get Weight History (date range)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/tracking/weight-history?startDate=2025-11-01&endDate=2025-11-28",
+              "host": ["{{BASE_URL}}"],
+              "path": ["tracking", "weight-history"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2025-11-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2025-11-28"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. AI Features",
+      "item": [
+        {
+          "name": "Scan Barcode (OpenFoodFacts)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"barcode\": \"5449000000996\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/ai/scan-barcode",
+              "host": ["{{BASE_URL}}"],
+              "path": ["ai", "scan-barcode"]
+            }
+          }
+        },
+        {
+          "name": "Get Daily Explanation (Gemini AI)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/ai/explain/daily?date=2025-11-28",
+              "host": ["{{BASE_URL}}"],
+              "path": ["ai", "explain", "daily"],
+              "query": [
+                {
+                  "key": "date",
+                  "value": "2025-11-28"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "9. Meal Planner",
+      "item": [
+        {
+          "name": "Search Recipes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/meal-planner/recipes/search?query=chicken&diet=low-carb&calories=500&limit=5",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meal-planner", "recipes", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "chicken",
+                  "description": "Search term (required)"
+                },
+                {
+                  "key": "diet",
+                  "value": "low-carb",
+                  "description": "Diet type: vegan, vegetarian, low-carb, etc."
+                },
+                {
+                  "key": "calories",
+                  "value": "500",
+                  "description": "Target calories"
+                },
+                {
+                  "key": "limit",
+                  "value": "5",
+                  "description": "Number of results (default: 10)"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test(\"Recipe has required fields\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.length > 0) {",
+                  "        pm.expect(jsonData[0]).to.have.property('label');",
+                  "        pm.expect(jsonData[0]).to.have.property('calories');",
+                  "        pm.expect(jsonData[0]).to.have.property('ingredientLines');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Search Recipes - Vegetarian Breakfast",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/meal-planner/recipes/search?query=oatmeal&diet=vegetarian&mealType=breakfast&health=gluten-free&limit=3",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meal-planner", "recipes", "search"],
+              "query": [
+                {
+                  "key": "query",
+                  "value": "oatmeal"
+                },
+                {
+                  "key": "diet",
+                  "value": "vegetarian"
+                },
+                {
+                  "key": "mealType",
+                  "value": "breakfast"
+                },
+                {
+                  "key": "health",
+                  "value": "gluten-free"
+                },
+                {
+                  "key": "limit",
+                  "value": "3"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Generate Meal Plan - Weekly",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startDate\": \"2025-12-01\",\n  \"endDate\": \"2025-12-07\",\n  \"planType\": \"WEEKLY\",\n  \"targetCalories\": 2000,\n  \"dietaryRestrictions\": [\"vegetarian\"],\n  \"healthPreferences\": [\"low-sodium\"],\n  \"cuisine\": \"mediterranean\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/meal-planner/generate",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meal-planner", "generate"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Meal plan created successfully\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('meals');",
+                  "    pm.expect(jsonData.meals).to.be.an('array');",
+                  "    ",
+                  "    // Save meal plan ID for later use",
+                  "    pm.environment.set('mealPlanId', jsonData.id);",
+                  "});",
+                  "",
+                  "pm.test(\"Meal plan has correct date range\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.startDate).to.eql('2025-12-01');",
+                  "    pm.expect(jsonData.endDate).to.eql('2025-12-07');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Generate Meal Plan - Daily (Low Carb)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"startDate\": \"2025-12-01\",\n  \"endDate\": \"2025-12-01\",\n  \"planType\": \"DAILY\",\n  \"targetCalories\": 1800,\n  \"dietaryRestrictions\": [\"low-carb\", \"high-protein\"],\n  \"healthPreferences\": [\"dairy-free\"],\n  \"excludedIngredients\": [\"peanuts\", \"shellfish\"]\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/meal-planner/generate",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meal-planner", "generate"]
+            }
+          }
+        },
+        {
+          "name": "Get Latest Meal Plan",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/meal-planner/latest",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meal-planner", "latest"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Latest meal plan returned\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('startDate');",
+                  "    pm.expect(jsonData).to.have.property('endDate');",
+                  "    pm.expect(jsonData).to.have.property('plannedMeals');",
+                  "    pm.expect(jsonData.plannedMeals).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test(\"Meal plan has meals\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.plannedMeals.length).to.be.greaterThan(0);",
+                  "});",
+                  "",
+                  "// Save mealPlanId for subsequent requests",
+                  "if (pm.response.code === 200) {",
+                  "    var plan = pm.response.json();",
+                  "    pm.environment.set(\"mealPlanId\", plan.id);",
+                  "    console.log(\"Saved mealPlanId: \" + plan.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Meal Plans",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/meal-planner",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meal-planner"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Meal Plan by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/meal-planner/{{mealPlanId}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meal-planner", "{{mealPlanId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Meal plan details complete\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('meals');",
+                  "    pm.expect(jsonData).to.have.property('totalCalories');",
+                  "    pm.expect(jsonData).to.have.property('totalProtein');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete Meal Plan",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/meal-planner/{{mealPlanId}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["meal-planner", "{{mealPlanId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Grocery List",
+      "item": [
+        {
+          "name": "Generate Grocery List from Meal Plan",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/grocery-list/from-meal-plan/{{mealPlanId}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["grocery-list", "from-meal-plan", "{{mealPlanId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Grocery list created successfully\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('items');",
+                  "    pm.expect(jsonData.items).to.be.an('array');",
+                  "    ",
+                  "    // Save grocery list ID and first item ID",
+                  "    pm.environment.set('groceryListId', jsonData.id);",
+                  "    if (jsonData.items.length > 0) {",
+                  "        pm.environment.set('groceryItemId', jsonData.items[0].id);",
+                  "    }",
+                  "});",
+                  "",
+                  "pm.test(\"Items have correct structure\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.items.length > 0) {",
+                  "        pm.expect(jsonData.items[0]).to.have.property('name');",
+                  "        pm.expect(jsonData.items[0]).to.have.property('quantity');",
+                  "        pm.expect(jsonData.items[0]).to.have.property('category');",
+                  "        pm.expect(jsonData.items[0]).to.have.property('purchased');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Generate Grocery List from Date Range",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/grocery-list/from-dates?startDate=2025-12-01&endDate=2025-12-07",
+              "host": ["{{BASE_URL}}"],
+              "path": ["grocery-list", "from-dates"],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2025-12-01"
+                },
+                {
+                  "key": "endDate",
+                  "value": "2025-12-07"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Grocery list has aggregated items\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('items');",
+                  "    pm.expect(jsonData.startDate).to.eql('2025-12-01');",
+                  "    pm.expect(jsonData.endDate).to.eql('2025-12-07');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Latest Grocery List",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/grocery-list/latest",
+              "host": ["{{BASE_URL}}"],
+              "path": ["grocery-list", "latest"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Latest grocery list returned\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('startDate');",
+                  "    pm.expect(jsonData).to.have.property('endDate');",
+                  "    pm.expect(jsonData).to.have.property('items');",
+                  "    pm.expect(jsonData.items).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test(\"Grocery list has items\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.items.length).to.be.greaterThan(0);",
+                  "});",
+                  "",
+                  "pm.test(\"Items have required fields\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    var firstItem = jsonData.items[0];",
+                  "    pm.expect(firstItem).to.have.property('id');",
+                  "    pm.expect(firstItem).to.have.property('name');",
+                  "    pm.expect(firstItem).to.have.property('category');",
+                  "    pm.expect(firstItem).to.have.property('purchased');",
+                  "});",
+                  "",
+                  "// Save groceryListId and first item ID for subsequent requests",
+                  "if (pm.response.code === 200) {",
+                  "    var list = pm.response.json();",
+                  "    pm.environment.set(\"groceryListId\", list.id);",
+                  "    console.log(\"Saved groceryListId: \" + list.id);",
+                  "    ",
+                  "    if (list.items.length > 0) {",
+                  "        pm.environment.set(\"groceryItemId\", list.items[0].id);",
+                  "        console.log(\"Saved groceryItemId: \" + list.items[0].id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Grocery Lists",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/grocery-list",
+              "host": ["{{BASE_URL}}"],
+              "path": ["grocery-list"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Grocery List by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/grocery-list/{{groceryListId}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["grocery-list", "{{groceryListId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Grocery list has items\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('items');",
+                  "    pm.expect(jsonData).to.have.property('totalItems');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark Item as Purchased",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/grocery-list/{{groceryListId}}/items/{{groceryItemId}}?purchased=true",
+              "host": ["{{BASE_URL}}"],
+              "path": ["grocery-list", "{{groceryListId}}", "items", "{{groceryItemId}}"],
+              "query": [
+                {
+                  "key": "purchased",
+                  "value": "true",
+                  "description": "Set to true to mark as purchased, false to unmark"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Item marked as purchased\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    var itemId = pm.environment.get('groceryItemId');",
+                  "    var item = jsonData.items.find(i => i.id == itemId);",
+                  "    if (item) {",
+                  "        pm.expect(item.purchased).to.be.true;",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mark Item as Not Purchased",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/grocery-list/{{groceryListId}}/items/{{groceryItemId}}?purchased=false",
+              "host": ["{{BASE_URL}}"],
+              "path": ["grocery-list", "{{groceryListId}}", "items", "{{groceryItemId}}"],
+              "query": [
+                {
+                  "key": "purchased",
+                  "value": "false"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Grocery List",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/grocery-list/{{groceryListId}}",
+              "host": ["{{BASE_URL}}"],
+              "path": ["grocery-list", "{{groceryListId}}"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "11. Meal Scan (NEW)",
+      "description": "Scan de repas par code-barres ou image avec analyse nutritionnelle complète",
+      "item": [
+        {
+          "name": "Scan Barcode - Quick",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{BASE_URL}}/scan/barcode?code=3017620422003&quantity=100",
+              "host": ["{{BASE_URL}}"],
+              "path": ["scan", "barcode"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "3017620422003",
+                  "description": "Barcode (example: Nutella)"
+                },
+                {
+                  "key": "quantity",
+                  "value": "100",
+                  "description": "Quantity in grams (optional)"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has scan data\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('scanType');",
+                  "    pm.expect(jsonData).to.have.property('status');",
+                  "    pm.expect(jsonData).to.have.property('detectedItems');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scan Meal - General (Barcode)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scanType\": \"BARCODE\",\n  \"data\": \"5449000000996\",\n  \"mealType\": \"SNACK\",\n  \"estimatedQuantityGrams\": 330\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/scan/meal",
+              "host": ["{{BASE_URL}}"],
+              "path": ["scan", "meal"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Barcode scan successful\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.scanType).to.eql('BARCODE');",
+                  "    pm.expect(jsonData.status).to.be.oneOf(['SUCCESS', 'NOT_FOUND', 'PARTIAL']);",
+                  "});",
+                  "",
+                  "pm.test(\"Has nutrition summary\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.status === 'SUCCESS') {",
+                  "        pm.expect(jsonData).to.have.property('totalNutrition');",
+                  "        pm.expect(jsonData).to.have.property('aiAnalysis');",
+                  "        pm.expect(jsonData).to.have.property('mealScore');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scan Meal - Image Base64 (Gemini Vision)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"scanType\": \"IMAGE_BASE64\",\n  \"data\": \"<base64_encoded_image_here>\",\n  \"mealType\": \"LUNCH\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/scan/meal",
+              "host": ["{{BASE_URL}}"],
+              "path": ["scan", "meal"]
+            },
+            "description": "Remplacer <base64_encoded_image_here> par une image encodée en base64. L'API Gemini Vision analysera l'image et retournera les aliments détectés avec leurs valeurs nutritionnelles."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Image scan response\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.scanType).to.eql('IMAGE');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Scan Image URL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"imageUrl\": \"https://example.com/meal-image.jpg\",\n  \"mealType\": \"DINNER\"\n}"
+            },
+            "url": {
+              "raw": "{{BASE_URL}}/scan/image-url",
+              "host": ["{{BASE_URL}}"],
+              "path": ["scan", "image-url"]
+            },
+            "description": "Télécharge l'image depuis l'URL et l'analyse avec Gemini Vision"
+          }
+        }
+      ]
+    }
+  ]
+}
+

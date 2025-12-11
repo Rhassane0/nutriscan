@@ -1,0 +1,61 @@
+# ===========================
+# NutriScan Project .gitignore
+# ===========================
+
+# ==== IDE ====
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# ==== OS ====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==== Java / Maven (Backend) ====
+nutriscan/target/
+nutriscan/*.jar
+nutriscan/*.war
+nutriscan/*.class
+nutriscan/.mvn/wrapper/maven-wrapper.jar
+*.log
+
+# ==== Flutter / Dart (Frontend) ====
+nutriscan_front/.dart_tool/
+nutriscan_front/.packages
+nutriscan_front/.pub-cache/
+nutriscan_front/.pub/
+nutriscan_front/build/
+nutriscan_front/.flutter-plugins
+nutriscan_front/.flutter-plugins-dependencies
+nutriscan_front/android/.gradle/
+nutriscan_front/android/app/build/
+nutriscan_front/android/build/
+nutriscan_front/android/local.properties
+nutriscan_front/ios/Flutter/Flutter.framework
+nutriscan_front/ios/Flutter/Flutter.podspec
+nutriscan_front/ios/Pods/
+nutriscan_front/ios/.symlinks/
+nutriscan_front/web/favicon.png
+*.freezed.dart
+*.g.dart
+
+# ==== Environment & Secrets ====
+.env
+.env.local
+.env.*.local
+*.env
+application-local.properties
+secrets/
+
+# ==== Test output ====
+test_output.txt
+
+# ==== Misc ====
+*.bak
+*.tmp
+*.temp
+

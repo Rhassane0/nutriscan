@@ -1,0 +1,198 @@
+import 'api_service.dart';
+import '../models/food.dart';
+
+class FoodService {
+  final ApiService _apiService;
+
+  FoodService(this._apiService);
+
+  Future<Food> searchByBarcode(String barcode) async {
+    try {
+      final response = await _apiService.get('/foods/barcode/$barcode');
+      return Food.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Recherche combinée dans la base locale ET OpenFoodFacts
+  Future<List<Food>> searchByName(String query) async {
+    List<Food> allResults = [];
+
+    // 1. Recherche dans la base de données locale
+    try {
+      final localResponse = await _apiService.get('/foods/search?query=$query');
+      print('📦 Local search response type: ${localResponse.runtimeType}');
+      if (localResponse is List) {
+        final localFoods = localResponse
+            .map((json) {
+              print('📄 Parsing local food: $json');
+              return Food.fromLocalJson(json as Map<String, dynamic>);
+            })
+            .toList();
+        allResults.addAll(localFoods);
+        print('✅ Local foods found: ${localFoods.length}');
+      }
+    } catch (e) {
+      print('⚠️ Local search error: $e');
+    }
+
+    // 2. Recherche dans OpenFoodFacts (organic)
+    try {
+      final organicResponse = await _apiService.get('/foods/search/organic?query=$query&limit=15');
+      print('📦 OpenFoodFacts search response type: ${organicResponse.runtimeType}');
+
+      if (organicResponse is List) {
+        print('📦 OpenFoodFacts found ${organicResponse.length} items');
+
+        final organicFoods = <Food>[];
+        for (var json in organicResponse) {
+          if (json == null) {
+            print('⚠️ Null item in OFF response');
+            continue;
+          }
+
+          final mapJson = json as Map<String, dynamic>;
+          print('📄 OFF item keys: ${mapJson.keys}');
+
+          // Vérifier si le produit a un nom valide
+          final product = mapJson['product'] as Map<String, dynamic>?;
+          if (product == null) {
+            print('⚠️ No product object in OFF item');
+            continue;
+          }
+
+          final productName = product['productName'] ?? product['product_name'];
+          print('📄 OFF product name: $productName');
+
+          if (productName == null || productName.toString().isEmpty) {
+            print('⚠️ Empty product name, skipping');
+            continue;
+          }
+
+          try {
+            final food = Food.fromOpenFoodFactsJson(mapJson);
+            if (food.label.isNotEmpty && food.label != 'Aliment inconnu') {
+              organicFoods.add(food);
+              print('✅ Added OFF food: ${food.label}');
+            }
+          } catch (parseError) {
+            print('⚠️ Error parsing OFF item: $parseError');
+          }
+        }
+
+        allResults.addAll(organicFoods);
+        print('✅ OFF foods added: ${organicFoods.length}');
+      } else {
+        print('⚠️ OFF response is not a List: ${organicResponse.runtimeType}');
+      }
+    } catch (e) {
+      print('⚠️ OpenFoodFacts search error: $e');
+    }
+
+    // Supprimer les doublons par nom
+    final seen = <String>{};
+    allResults = allResults.where((food) {
+      final key = food.label.toLowerCase();
+      if (seen.contains(key)) return false;
+      seen.add(key);
+      return true;
+    }).toList();
+
+    print('📊 Total unique results: ${allResults.length}');
+    return allResults;
+  }
+
+  /// Recherche uniquement dans la base locale
+  Future<List<Food>> searchLocalFoods(String query) async {
+    try {
+      final response = await _apiService.get('/foods/search?query=$query');
+      if (response is List) {
+        return response.map((json) => Food.fromLocalJson(json as Map<String, dynamic>)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('❌ searchLocalFoods error: $e');
+      rethrow;
+    }
+  }
+
+  /// Recherche uniquement dans OpenFoodFacts
+  Future<List<Food>> searchOrganicFoods(String query, {int limit = 20}) async {
+    try {
+      final response = await _apiService.get('/foods/search/organic?query=$query&limit=$limit');
+      print('🌿 searchOrganicFoods response type: ${response.runtimeType}');
+
+      if (response is List) {
+        print('🌿 Found ${response.length} items from OFF');
+
+        final foods = <Food>[];
+        for (var json in response) {
+          if (json == null) continue;
+
+          final mapJson = json as Map<String, dynamic>;
+          final product = mapJson['product'] as Map<String, dynamic>?;
+
+          if (product == null) continue;
+
+          final productName = product['productName'] ?? product['product_name'];
+          if (productName == null || productName.toString().isEmpty) continue;
+
+          try {
+            final food = Food.fromOpenFoodFactsJson(mapJson);
+            if (food.label.isNotEmpty && food.label != 'Aliment inconnu') {
+              foods.add(food);
+            }
+          } catch (e) {
+            print('⚠️ Error parsing OFF food: $e');
+          }
+        }
+
+        print('🌿 Returning ${foods.length} valid OFF foods');
+        return foods;
+      }
+      return [];
+    } catch (e) {
+      print('❌ searchOrganicFoods error: $e');
+      rethrow;
+    }
+  }
+
+  Future<Food> getFoodById(int id) async {
+    try {
+      final response = await _apiService.get('/foods/$id');
+      return Food.fromLocalJson(response as Map<String, dynamic>);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<List<Food>> getUserFavorites() async {
+    try {
+      final response = await _apiService.get('/foods/favorites');
+      if (response is List) {
+        return response.map((json) => Food.fromLocalJson(json as Map<String, dynamic>)).toList();
+      }
+      return [];
+    } catch (e) {
+      print('❌ getUserFavorites error: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> addToFavorites(int foodId) async {
+    try {
+      await _apiService.post('/foods/$foodId/favorite', {});
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> removeFromFavorites(int foodId) async {
+    try {
+      await _apiService.delete('/foods/$foodId/favorite');
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
