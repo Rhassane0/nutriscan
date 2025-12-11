@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -20,6 +20,7 @@ class _MealPhotoScannerScreenState extends State<MealPhotoScannerScreen>
     with TickerProviderStateMixin {
   final ImagePicker _picker = ImagePicker();
   XFile? _selectedImage;
+  Uint8List? _imageBytes; // Pour stocker les bytes de l'image (compatible web)
   bool _isAnalyzing = false;
   String? _selectedMealType;
 
@@ -75,8 +76,11 @@ class _MealPhotoScannerScreenState extends State<MealPhotoScannerScreen>
       );
 
       if (image != null) {
+        // Lire les bytes de l'image pour un affichage compatible web
+        final bytes = await image.readAsBytes();
         setState(() {
           _selectedImage = image;
+          _imageBytes = bytes;
         });
       }
     } catch (e) {
@@ -99,7 +103,8 @@ class _MealPhotoScannerScreenState extends State<MealPhotoScannerScreen>
     });
 
     try {
-      final bytes = await _selectedImage!.readAsBytes();
+      // Utiliser les bytes déjà stockés ou les lire à nouveau
+      final bytes = _imageBytes ?? await _selectedImage!.readAsBytes();
       final base64Image = base64Encode(bytes);
 
       final aiService = context.read<AiService>();
@@ -114,7 +119,7 @@ class _MealPhotoScannerScreenState extends State<MealPhotoScannerScreen>
           MaterialPageRoute(
             builder: (context) => MealAnalysisResultScreen(
               analysisResult: result,
-              imageFile: File(_selectedImage!.path),
+              imageBytes: bytes, // Passer les bytes au lieu du fichier
               mealType: _selectedMealType,
             ),
           ),
@@ -470,10 +475,18 @@ class _MealPhotoScannerScreenState extends State<MealPhotoScannerScreen>
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.file(
-                    File(_selectedImage!.path),
-                    fit: BoxFit.cover,
-                  ),
+                  // Utiliser Image.memory pour compatibilité web
+                  _imageBytes != null
+                      ? Image.memory(
+                          _imageBytes!,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          color: Colors.grey[800],
+                          child: const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                        ),
 
                   // Overlay gradient
                   Positioned(
@@ -500,7 +513,10 @@ class _MealPhotoScannerScreenState extends State<MealPhotoScannerScreen>
                     top: 16,
                     right: 16,
                     child: GestureDetector(
-                      onTap: () => setState(() => _selectedImage = null),
+                      onTap: () => setState(() {
+                        _selectedImage = null;
+                        _imageBytes = null;
+                      }),
                       child: Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(

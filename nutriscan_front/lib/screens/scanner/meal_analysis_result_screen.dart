@@ -1,5 +1,4 @@
-import 'dart:io';
-import 'dart:math' as math;
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../../config/theme.dart';
 import '../../services/ai_service.dart';
@@ -7,13 +6,13 @@ import '../../services/ai_service.dart';
 /// Écran de résultat d'analyse de repas par IA
 class MealAnalysisResultScreen extends StatefulWidget {
   final MealPhotoAnalysisResponse analysisResult;
-  final File imageFile;
+  final Uint8List imageBytes; // Changé de File à Uint8List pour compatibilité web
   final String? mealType;
 
   const MealAnalysisResultScreen({
     super.key,
     required this.analysisResult,
-    required this.imageFile,
+    required this.imageBytes,
     this.mealType,
   });
 
@@ -210,7 +209,7 @@ class _MealAnalysisResultScreenState extends State<MealAnalysisResultScreen>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.file(widget.imageFile, fit: BoxFit.cover),
+            Image.memory(widget.imageBytes, fit: BoxFit.cover),
 
             // Gradient overlay
             Container(
