@@ -78,7 +78,7 @@ flutter run
 
 ### Backend
 - **Framework**: Spring Boot 3.2.0
-- **Langage**: Java 17
+- **Langage**: Java 21
 - **Base de données**: PostgreSQL
 - **Sécurité**: Spring Security + JWT
 - **API**: RESTful
