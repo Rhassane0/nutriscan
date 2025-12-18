@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/planner_provider.dart';
 import '../../providers/meal_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../models/meal_plan.dart';
 import '../../config/theme.dart';
 import '../../widgets/loading_indicator.dart';
@@ -42,7 +43,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
           child: Consumer<PlannerProvider>(
             builder: (context, provider, child) {
               if (provider.isLoading) {
-                return const LoadingIndicator(message: 'Chargement du plan...');
+                return LoadingIndicator(message: context.tr('loading'));
               }
 
               return Column(
@@ -73,7 +74,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Planificateur',
+                  context.tr('meal_planner_title'),
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -81,7 +82,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
                   ),
                 ),
                 Text(
-                  'de Repas',
+                  context.tr('meal_planner_subtitle'),
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -137,7 +138,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
             ),
             const SizedBox(height: 32),
             Text(
-              'Aucun plan de repas',
+              context.tr('no_meal_plan'),
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w700,
@@ -146,7 +147,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Créez votre premier plan hebdomadaire\npersonnalisé avec l\'IA',
+              context.tr('create_first_plan'),
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 15,
@@ -174,14 +175,14 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
                     ),
                   ],
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.auto_awesome, color: Colors.white, size: 24),
-                    SizedBox(width: 12),
+                    const Icon(Icons.auto_awesome, color: Colors.white, size: 24),
+                    const SizedBox(width: 12),
                     Text(
-                      'Créer un plan',
-                      style: TextStyle(
+                      context.tr('create_plan'),
+                      style: const TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
@@ -258,7 +259,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      plan.planType ?? 'WEEKLY',
+                      (plan.planType?.toUpperCase() == 'WEEKLY') ? context.tr('weekly').toUpperCase() : (plan.planType ?? context.tr('weekly').toUpperCase()),
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -269,8 +270,8 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
                     const SizedBox(height: 4),
                     Text(
                       plan.dietType != null
-                          ? (Constants.dietTypes[plan.dietType] ?? plan.dietType ?? 'Plan équilibré')
-                          : 'Plan équilibré',
+                          ? (Constants.dietTypes[plan.dietType] ?? plan.dietType ?? context.tr('balanced_plan'))
+                          : context.tr('balanced_plan'),
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w800,
@@ -363,7 +364,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
@@ -378,7 +379,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
             ),
             const SizedBox(width: 12),
             Text(
-              'Supprimer le plan',
+              context.tr('delete_plan'),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -388,16 +389,16 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
           ],
         ),
         content: Text(
-          'Voulez-vous vraiment supprimer ce plan de repas ? Cette action est irréversible.',
+          context.tr('delete_plan_confirm'),
           style: TextStyle(
             color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
           ),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: Text(
-              'Annuler',
+              context.tr('cancel'),
               style: TextStyle(
                 color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
               ),
@@ -405,7 +406,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               final provider = context.read<PlannerProvider>();
               final success = await provider.deleteMealPlan();
               if (mounted) {
@@ -418,7 +419,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
                           color: Colors.white,
                         ),
                         const SizedBox(width: 8),
-                        Text(success ? 'Plan supprimé' : 'Erreur lors de la suppression'),
+                        Text(success ? context.tr('meal_deleted') : context.tr('error')),
                       ],
                     ),
                     backgroundColor: success ? AppTheme.successGreen : AppTheme.errorRed,
@@ -433,7 +434,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Supprimer'),
+            child: Text(context.tr('delete')),
           ),
         ],
       ),
@@ -494,9 +495,9 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
             children: [
               const Icon(Icons.shopping_cart_checkout, color: Colors.white, size: 24),
               const SizedBox(width: 12),
-              const Text(
-                'Générer liste de courses',
-                style: TextStyle(
+              Text(
+                context.tr('generate_grocery_list'),
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: Colors.white,
@@ -993,9 +994,11 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
     DateTime date,
     TimeOfDay time,
   ) async {
-    Navigator.pop(context); // Fermer le bottom sheet
-
+    // Sauvegarder les références avant de pop le contexte
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final mealProvider = context.read<MealProvider>();
+
+    Navigator.pop(context); // Fermer le bottom sheet
 
     // Estimer les macros basées sur les calories (ratios approximatifs)
     // Ratio standard équilibré: ~20% protéines, ~50% glucides, ~30% lipides
@@ -1025,32 +1028,30 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
 
     final success = await mealProvider.createMeal(mealData);
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                success ? Icons.check_circle : Icons.error_outline,
-                color: Colors.white,
+    scaffoldMessenger.showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              success ? Icons.check_circle : Icons.error_outline,
+              color: Colors.white,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                success
+                    ? 'Repas ajouté à votre journal du ${DateFormatter.formatForDisplay(date)}'
+                    : 'Erreur lors de l\'ajout du repas',
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  success
-                      ? 'Repas ajouté à votre journal du ${DateFormatter.formatForDisplay(date)}'
-                      : 'Erreur lors de l\'ajout du repas',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: success ? AppTheme.successGreen : AppTheme.errorRed,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          duration: const Duration(seconds: 3),
+            ),
+          ],
         ),
-      );
-    }
+        backgroundColor: success ? AppTheme.successGreen : AppTheme.errorRed,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Widget _buildFab(BuildContext context, bool isDark) {
@@ -1076,9 +1077,9 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Nouveau plan',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        label: Text(
+          context.tr('new_plan'),
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
     );

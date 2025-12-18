@@ -19,7 +19,9 @@ import 'providers/planner_provider.dart';
 import 'providers/weight_tracking_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/locale_provider.dart';
+import 'providers/profile_provider.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/home/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -106,10 +108,14 @@ class NutriScanApp extends StatelessWidget {
             context.read<WeightTrackingService>(),
           ),
         ),
+        ChangeNotifierProvider<ProfileProvider>(
+          create: (_) => ProfileProvider(),
+        ),
       ],
       child: Consumer2<ThemeProvider, LocaleProvider>(
         builder: (context, themeProvider, localeProvider, child) {
           return MaterialApp(
+            // Pas de ValueKey pour éviter de reconstruire toute l'app
             title: 'NutriScan',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
@@ -121,10 +127,15 @@ class NutriScanApp extends StatelessWidget {
               Locale('en', 'US'),
             ],
             localizationsDelegates: const [
+              AppLocalizationsDelegate(),
               GlobalMaterialLocalizations.delegate,
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
+            // Routes nommées pour navigation via pushReplacementNamed
+            routes: {
+              '/home': (context) => const HomeScreen(),
+            },
             home: const LoginScreen(),
           );
         },

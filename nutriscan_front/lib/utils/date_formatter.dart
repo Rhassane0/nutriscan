@@ -1,6 +1,15 @@
 import 'package:intl/intl.dart';
 
 class DateFormatter {
+  // Locale courante (mise à jour par l'app)
+  static String _currentLocale = 'fr_FR';
+
+  static void setLocale(String locale) {
+    _currentLocale = locale;
+  }
+
+  static String get currentLocale => _currentLocale;
+
   // Format: yyyy-MM-dd (pour l'API)
   static String formatForApi(DateTime date) {
     return DateFormat('yyyy-MM-dd').format(date);
@@ -18,12 +27,12 @@ class DateFormatter {
 
   // Format: dd MMM yyyy (ex: 30 Nov 2025)
   static String formatLong(DateTime date) {
-    return DateFormat('dd MMM yyyy', 'fr_FR').format(date);
+    return DateFormat('dd MMM. yyyy', _currentLocale).format(date);
   }
 
   // Format: EEE dd MMM (ex: Lun 30 Nov)
   static String formatWithDay(DateTime date) {
-    return DateFormat('EEE dd MMM', 'fr_FR').format(date);
+    return DateFormat('EEE dd MMM', _currentLocale).format(date);
   }
 
   // Parse from API format
@@ -57,7 +66,7 @@ class DateFormatter {
 
   // Get day abbreviation (ex: mar.)
   static String getDayAbbr(DateTime date) {
-    return DateFormat('EEE', 'fr_FR').format(date).toLowerCase();
+    return DateFormat('EEE', _currentLocale).format(date).toLowerCase();
   }
 
   // Get day number (ex: 09)

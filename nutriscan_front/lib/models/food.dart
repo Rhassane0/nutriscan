@@ -29,7 +29,6 @@ class Food {
 
   /// Parser pour le format de la base locale (FoodResponse)
   factory Food.fromLocalJson(Map<String, dynamic> json) {
-    print('🍏 Local food data: $json');
     return Food(
       foodId: (json['id'] ?? json['foodId'] ?? '').toString(),
       label: json['name']?.toString() ?? json['label']?.toString() ?? 'Aliment inconnu',
@@ -61,13 +60,6 @@ class Food {
 
     final nutriments = product['nutriments'] as Map<String, dynamic>? ?? {};
 
-    // Debug log détaillé
-    print('🍎 === Parsing OFF Product ===');
-    print('🍎 Product keys: ${product.keys.toList()}');
-    print('🍎 Product name (productName): ${product['productName']}');
-    print('🍎 Product name (product_name): ${product['product_name']}');
-    print('🍎 Nutriments keys: ${nutriments.keys.toList()}');
-    print('🍎 Nutriments values: $nutriments');
 
     // Support both camelCase (from Java backend) and snake_case (direct from OFF API)
     final productName = product['productName']?.toString() ??
@@ -111,7 +103,6 @@ class Food {
                  _parseDouble(nutriments['fats_100g']) ??
                  _parseDouble(nutriments['fats']);
 
-    print('🍎 Parsed values - calories: $calories, proteins: $proteins, carbs: $carbs, fats: $fats');
 
     return Food(
       foodId: json['code']?.toString() ?? 'unknown',

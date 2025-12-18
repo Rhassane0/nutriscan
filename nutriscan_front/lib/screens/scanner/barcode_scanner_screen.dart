@@ -7,6 +7,7 @@ import '../../config/theme.dart';
 import '../../services/ai_service.dart';
 import '../../models/scan_result.dart';
 import 'barcode_scan_result_screen.dart';
+import '../../providers/meal_provider.dart';
 
 /// Écran de scan de code-barres avec design époustouflant
 class BarcodeScannerScreen extends StatefulWidget {
@@ -80,7 +81,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
 
       if (!mounted) return;
 
-      await Navigator.of(context).push(
+      final res = await Navigator.of(context).push(
         PageRouteBuilder(
           pageBuilder: (context, animation, secondaryAnimation) =>
               BarcodeScanResultScreen(scanResult: result),
@@ -101,6 +102,11 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen>
           },
         ),
       );
+
+      // Si le résultat est true => un repas a été ajouté, recharger la liste
+      if (res == true) {
+        context.read<MealProvider>().loadMealsForDate(DateTime.now());
+      }
 
       setState(() {
         _isProcessing = false;

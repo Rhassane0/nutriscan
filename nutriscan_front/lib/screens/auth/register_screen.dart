@@ -3,9 +3,11 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/profile_provider.dart';
 import '../../utils/validators.dart';
 import '../../config/theme.dart';
 import '../home/home_screen.dart';
+import '../onboarding/onboarding_profile_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -104,6 +106,30 @@ class _RegisterScreenState extends State<RegisterScreen> with TickerProviderStat
       if (!mounted) return;
 
       if (success) {
+        // If profile provider exists, check profile completeness
+        try {
+          final profileProvider = context.read<ProfileProvider>();
+          final user = authProvider.user;
+          if (user != null && user.profile != null) {
+            profileProvider.profile = user.profile;
+          }
+
+          if (!profileProvider.isProfileComplete) {
+            Navigator.of(context).pushReplacement(
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) => const OnboardingProfileScreen(),
+                transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
+                transitionDuration: const Duration(milliseconds: 500),
+              ),
+            );
+            return;
+          }
+        } catch (_) {
+          // ProfileProvider not registered in the tree; fall back to home
+        }
+
         Navigator.of(context).pushReplacement(
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),

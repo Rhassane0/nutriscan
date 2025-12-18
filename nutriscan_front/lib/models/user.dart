@@ -1,9 +1,58 @@
+class UserProfile {
+  final int? age;
+  final String? gender;
+  final double? heightCm;
+  final double? weightKg;
+  final String? activityLevel; // sedentary, light, moderate, active, veryActive
+  final String? goalType; // maintain, lose, gain
+  final String bio;
+  final String website;
+
+  UserProfile({
+    this.age,
+    this.gender,
+    this.heightCm,
+    this.weightKg,
+    this.activityLevel,
+    this.goalType,
+    required this.bio,
+    required this.website,
+  });
+
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    return UserProfile(
+      age: json['age'] as int?,
+      gender: json['gender'] as String?,
+      heightCm: (json['heightCm'] as num?)?.toDouble(),
+      weightKg: (json['weightKg'] as num?)?.toDouble(),
+      activityLevel: json['activityLevel'] as String?,
+      goalType: json['goalType'] as String?,
+      bio: json['bio'] as String? ?? '',
+      website: json['website'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (age != null) 'age': age,
+      if (gender != null) 'gender': gender,
+      if (heightCm != null) 'heightCm': heightCm,
+      if (weightKg != null) 'weightKg': weightKg,
+      if (activityLevel != null) 'activityLevel': activityLevel,
+      if (goalType != null) 'goalType': goalType,
+      'bio': bio,
+      'website': website,
+    };
+  }
+}
+
 class User {
   final int id;
   final String username;
   final String email;
   final String? fullName;
   final String? role;
+  final UserProfile? profile; // new optional profile
 
   User({
     required this.id,
@@ -11,6 +60,7 @@ class User {
     required this.email,
     this.fullName,
     this.role,
+    this.profile,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -20,6 +70,7 @@ class User {
       email: json['email'] as String? ?? '',
       fullName: json['fullName'] as String?,
       role: json['role'] as String?,
+      profile: json['profile'] != null ? UserProfile.fromJson(json['profile'] as Map<String, dynamic>) : null,
     );
   }
 
@@ -30,6 +81,7 @@ class User {
       'email': email,
       if (fullName != null) 'fullName': fullName,
       if (role != null) 'role': role,
+      if (profile != null) 'profile': profile!.toJson(),
     };
   }
 }
@@ -94,4 +146,3 @@ class RegisterRequest {
     };
   }
 }
-

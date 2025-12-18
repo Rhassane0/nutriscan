@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/meal_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../config/theme.dart';
 import '../../widgets/theme_widgets.dart';
 import '../../widgets/meal_nutrition_analysis.dart';
@@ -49,31 +50,35 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBottomNavBar(bool isDark) {
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: isDark ? const Color(0x4D000000) : const Color(0x0D000000),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildNavItem(0, Icons.home_rounded, 'Accueil', isDark),
-              _buildNavItem(1, Icons.restaurant_rounded, 'Repas', isDark),
-              _buildNavItem(2, Icons.calendar_month_rounded, 'Plan', isDark),
-              _buildNavItem(3, Icons.person_rounded, 'Profil', isDark),
+    return Consumer<LocaleProvider>(
+      builder: (context, localeProvider, _) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkSurface : Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: isDark ? const Color(0x4D000000) : const Color(0x0D000000),
+                blurRadius: 20,
+                offset: const Offset(0, -5),
+              ),
             ],
           ),
-        ),
-      ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildNavItem(0, Icons.home_rounded, context.tr('home'), isDark),
+                  _buildNavItem(1, Icons.restaurant_rounded, context.tr('meals'), isDark),
+                  _buildNavItem(2, Icons.calendar_month_rounded, context.tr('planner'), isDark),
+                  _buildNavItem(3, Icons.person_rounded, context.tr('profile'), isDark),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -318,9 +323,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Bonjour';
-    if (hour < 18) return 'Bon après-midi';
-    return 'Bonsoir';
+    if (hour < 12) return context.tr('good_morning');
+    if (hour < 18) return context.tr('good_afternoon');
+    return context.tr('good_evening');
   }
 
   Widget _buildWelcomeCard(String username, bool isDark) {
@@ -377,9 +382,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Mangez sainement !',
-                      style: TextStyle(
+                    Text(
+                      context.tr('eat_healthy'),
+                      style: const TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w800,
                         color: Colors.white,
@@ -463,7 +468,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       children: [
         _buildSectionHeader(
           icon: Icons.flash_on_rounded,
-          title: 'Actions rapides',
+          title: context.tr('quick_actions'),
           color: AppTheme.warningYellow,
           isDark: isDark,
         ),
@@ -473,8 +478,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: FeatureIconCard(
                 emoji: '📷',
-                title: 'Scanner',
-                subtitle: 'Code-barres',
+                title: context.tr('scan'),
+                subtitle: context.tr('barcode'),
                 color: AppTheme.primaryGreen,
                 gradient: AppTheme.primaryGlowGradient,
                 onTap: () => Navigator.push(context,
@@ -485,8 +490,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: FeatureIconCard(
                 emoji: '🍽️',
-                title: 'Mes Repas',
-                subtitle: 'Aujourd\'hui',
+                title: context.tr('my_meals'),
+                subtitle: context.tr('today'),
                 color: AppTheme.secondaryOrange,
                 gradient: AppTheme.orangeGradient,
                 onTap: () => widget.onNavigateToTab?.call(1),
@@ -500,8 +505,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: FeatureIconCard(
                 emoji: '📅',
-                title: 'Planifier',
-                subtitle: 'Semaine',
+                title: context.tr('plan_week'),
+                subtitle: context.tr('week'),
                 color: AppTheme.accentBlue,
                 gradient: AppTheme.blueGradient,
                 onTap: () => widget.onNavigateToTab?.call(2),
@@ -511,8 +516,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Expanded(
               child: FeatureIconCard(
                 emoji: '🛒',
-                title: 'Courses',
-                subtitle: 'Liste',
+                title: context.tr('shopping'),
+                subtitle: context.tr('list'),
                 color: AppTheme.accentPurple,
                 gradient: AppTheme.purpleGradient,
                 onTap: () => Navigator.push(context,
@@ -524,8 +529,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         const SizedBox(height: 12),
         FeatureIconCard(
           emoji: '🔍',
-          title: 'Rechercher des recettes',
-          subtitle: 'Trouvez de nouvelles idées de repas',
+          title: context.tr('search_recipes'),
+          subtitle: context.tr('find_meal_ideas'),
           color: AppTheme.accentTeal,
           gradient: AppTheme.tealGradient,
           onTap: () => Navigator.push(context,
@@ -576,7 +581,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             _buildSectionHeader(
               icon: Icons.analytics_rounded,
-              title: 'Aujourd\'hui',
+              title: context.tr('today'),
               color: AppTheme.caloriesColor,
               isDark: isDark,
             ),
@@ -592,7 +597,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Row(
                   children: [
                     Text(
-                      'Détails',
+                      context.tr('view_details'),
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
@@ -633,9 +638,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildMacroItem('🥩', 'Protéines', totals['proteins'] ?? 0, 120, AppTheme.proteinColor, isDark),
-                  _buildMacroItem('🍞', 'Glucides', totals['carbs'] ?? 0, 250, AppTheme.carbsColor, isDark),
-                  _buildMacroItem('🥑', 'Lipides', totals['fats'] ?? 0, 70, AppTheme.fatColor, isDark),
+                  _buildMacroItem('🥩', context.tr('protein'), totals['proteins'] ?? 0, 120, AppTheme.proteinColor, isDark),
+                  _buildMacroItem('🍞', context.tr('carbs'), totals['carbs'] ?? 0, 250, AppTheme.carbsColor, isDark),
+                  _buildMacroItem('🥑', context.tr('fat'), totals['fats'] ?? 0, 70, AppTheme.fatColor, isDark),
                 ],
               ),
             ],
@@ -826,7 +831,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Conseil du jour',
+                  context.tr('tip_of_day'),
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

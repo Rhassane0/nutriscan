@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
+import '../../providers/locale_provider.dart';
 import 'barcode_scanner_screen.dart';
 import 'meal_photo_scanner_screen.dart';
 
@@ -220,7 +222,7 @@ class _ScannerHubScreenState extends State<ScannerHubScreen>
                   ),
                 ),
                 Text(
-                  'Scanner intelligent',
+                  context.tr('smart_scanner'),
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.white.withOpacity(0.7),
@@ -356,14 +358,18 @@ class _ScannerHubScreenState extends State<ScannerHubScreen>
   }
 
   Widget _buildScanOptions() {
+    final isFrench = context.watch<LocaleProvider>().isFrench;
+
     return Column(
       children: [
         // Option scan code-barres
         _buildScanOptionCard(
           icon: Icons.qr_code_2_rounded,
-          title: 'Scanner un Code-Barres',
-          subtitle: 'Scannez les produits alimentaires',
-          description: 'Obtenez instantanément les valeurs nutritionnelles, le Nutri-Score, et des recommandations personnalisées.',
+          title: context.tr('scan_barcode_title'),
+          subtitle: isFrench ? 'Scannez les produits alimentaires' : 'Scan food products',
+          description: isFrench
+            ? 'Obtenez instantanément les valeurs nutritionnelles, le Nutri-Score, et des recommandations personnalisées.'
+            : 'Get instant nutritional values, Nutri-Score, and personalized recommendations.',
           gradient: const LinearGradient(
             colors: [Color(0xFF00C853), Color(0xFF00E676)],
             begin: Alignment.topLeft,
@@ -398,9 +404,11 @@ class _ScannerHubScreenState extends State<ScannerHubScreen>
         // Option scan photo repas
         _buildScanOptionCard(
           icon: Icons.restaurant_rounded,
-          title: 'Analyser un Repas',
-          subtitle: 'Prenez une photo de votre assiette',
-          description: 'Notre IA identifie les aliments et estime les calories, protéines, glucides et lipides de votre repas.',
+          title: context.tr('scan_meal_title'),
+          subtitle: isFrench ? 'Prenez une photo de votre assiette' : 'Take a photo of your plate',
+          description: isFrench
+            ? 'Notre IA identifie les aliments et estime les calories, protéines, glucides et lipides de votre repas.'
+            : 'Our AI identifies foods and estimates calories, proteins, carbs and fats from your meal.',
           gradient: const LinearGradient(
             colors: [Color(0xFF7C4DFF), Color(0xFFB388FF)],
             begin: Alignment.topLeft,

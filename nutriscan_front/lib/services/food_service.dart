@@ -22,72 +22,48 @@ class FoodService {
     // 1. Recherche dans la base de données locale
     try {
       final localResponse = await _apiService.get('/foods/search?query=$query');
-      print('📦 Local search response type: ${localResponse.runtimeType}');
       if (localResponse is List) {
         final localFoods = localResponse
-            .map((json) {
-              print('📄 Parsing local food: $json');
-              return Food.fromLocalJson(json as Map<String, dynamic>);
-            })
+            .map((json) => Food.fromLocalJson(json as Map<String, dynamic>))
             .toList();
         allResults.addAll(localFoods);
-        print('✅ Local foods found: ${localFoods.length}');
       }
     } catch (e) {
-      print('⚠️ Local search error: $e');
+      // Ignorer les erreurs de recherche locale
     }
 
     // 2. Recherche dans OpenFoodFacts (organic)
     try {
       final organicResponse = await _apiService.get('/foods/search/organic?query=$query&limit=15');
-      print('📦 OpenFoodFacts search response type: ${organicResponse.runtimeType}');
 
       if (organicResponse is List) {
-        print('📦 OpenFoodFacts found ${organicResponse.length} items');
-
         final organicFoods = <Food>[];
         for (var json in organicResponse) {
-          if (json == null) {
-            print('⚠️ Null item in OFF response');
-            continue;
-          }
+          if (json == null) continue;
 
           final mapJson = json as Map<String, dynamic>;
-          print('📄 OFF item keys: ${mapJson.keys}');
 
           // Vérifier si le produit a un nom valide
           final product = mapJson['product'] as Map<String, dynamic>?;
-          if (product == null) {
-            print('⚠️ No product object in OFF item');
-            continue;
-          }
+          if (product == null) continue;
 
           final productName = product['productName'] ?? product['product_name'];
-          print('📄 OFF product name: $productName');
-
-          if (productName == null || productName.toString().isEmpty) {
-            print('⚠️ Empty product name, skipping');
-            continue;
-          }
+          if (productName == null || productName.toString().isEmpty) continue;
 
           try {
             final food = Food.fromOpenFoodFactsJson(mapJson);
             if (food.label.isNotEmpty && food.label != 'Aliment inconnu') {
               organicFoods.add(food);
-              print('✅ Added OFF food: ${food.label}');
             }
-          } catch (parseError) {
-            print('⚠️ Error parsing OFF item: $parseError');
+          } catch (_) {
+            // Ignorer les erreurs de parsing
           }
         }
 
         allResults.addAll(organicFoods);
-        print('✅ OFF foods added: ${organicFoods.length}');
-      } else {
-        print('⚠️ OFF response is not a List: ${organicResponse.runtimeType}');
       }
     } catch (e) {
-      print('⚠️ OpenFoodFacts search error: $e');
+      // Ignorer les erreurs OpenFoodFacts
     }
 
     // Supprimer les doublons par nom
@@ -99,7 +75,6 @@ class FoodService {
       return true;
     }).toList();
 
-    print('📊 Total unique results: ${allResults.length}');
     return allResults;
   }
 
@@ -112,7 +87,6 @@ class FoodService {
       }
       return [];
     } catch (e) {
-      print('❌ searchLocalFoods error: $e');
       rethrow;
     }
   }
@@ -121,11 +95,8 @@ class FoodService {
   Future<List<Food>> searchOrganicFoods(String query, {int limit = 20}) async {
     try {
       final response = await _apiService.get('/foods/search/organic?query=$query&limit=$limit');
-      print('🌿 searchOrganicFoods response type: ${response.runtimeType}');
 
       if (response is List) {
-        print('🌿 Found ${response.length} items from OFF');
-
         final foods = <Food>[];
         for (var json in response) {
           if (json == null) continue;
@@ -143,17 +114,15 @@ class FoodService {
             if (food.label.isNotEmpty && food.label != 'Aliment inconnu') {
               foods.add(food);
             }
-          } catch (e) {
-            print('⚠️ Error parsing OFF food: $e');
+          } catch (_) {
+            // Ignorer les erreurs de parsing
           }
         }
 
-        print('🌿 Returning ${foods.length} valid OFF foods');
         return foods;
       }
       return [];
     } catch (e) {
-      print('❌ searchOrganicFoods error: $e');
       rethrow;
     }
   }
@@ -175,7 +144,6 @@ class FoodService {
       }
       return [];
     } catch (e) {
-      print('❌ getUserFavorites error: $e');
       rethrow;
     }
   }

@@ -23,7 +23,6 @@ class MealService {
 
       return [];
     } catch (e) {
-      print('❌ getMeals error: $e');
       rethrow;
     }
   }

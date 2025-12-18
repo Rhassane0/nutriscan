@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/planner_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../widgets/loading_indicator.dart';
 
 class GroceryListScreen extends StatefulWidget {
@@ -76,10 +77,11 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final isDark = themeProvider.isDarkMode;
+    final isFrench = context.watch<LocaleProvider>().isFrench;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Liste de Courses'),
+        title: Text(isFrench ? 'Liste de Courses' : 'Grocery List'),
         backgroundColor: AppTheme.primaryGreen,
         foregroundColor: Colors.white,
         actions: [
@@ -103,7 +105,7 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
         child: Consumer<PlannerProvider>(
           builder: (context, provider, child) {
             if (provider.isLoading) {
-              return const LoadingIndicator(message: 'Chargement de la liste...');
+              return LoadingIndicator(message: isFrench ? 'Chargement de la liste...' : 'Loading list...');
             }
 
             if (provider.currentGroceryList == null) {
@@ -153,7 +155,9 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '$purchasedItems / $totalItems articles achetés',
+                        isFrench
+                          ? '$purchasedItems / $totalItems articles achetés'
+                          : '$purchasedItems / $totalItems items purchased',
                         style: const TextStyle(color: Colors.white70, fontSize: 16),
                       ),
                       const SizedBox(height: 16),
@@ -175,7 +179,7 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
                   child: groceryList.categories.isEmpty
                       ? Center(
                           child: Text(
-                            'Aucun article dans la liste',
+                            isFrench ? 'Aucun article dans la liste' : 'No items in the list',
                             style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600]),
                           ),
                         )
@@ -375,6 +379,8 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
   }
 
   Widget _buildEmptyState(bool isDark) {
+    final isFrench = context.watch<LocaleProvider>().isFrench;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -389,7 +395,7 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            'Aucune liste de courses',
+            isFrench ? 'Aucune liste de courses' : 'No grocery list',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -398,7 +404,9 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Générez un plan repas pour créer\nvotre liste de courses',
+            isFrench
+              ? 'Générez un plan repas pour créer\nvotre liste de courses'
+              : 'Generate a meal plan to create\nyour grocery list',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
@@ -409,7 +417,7 @@ class _GroceryListScreenState extends State<GroceryListScreen> {
           ElevatedButton.icon(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.arrow_back),
-            label: const Text('Retour au planificateur'),
+            label: Text(isFrench ? 'Retour au planificateur' : 'Back to planner'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryGreen,
               foregroundColor: Colors.white,

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../providers/planner_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/locale_provider.dart';
 import '../../utils/date_formatter.dart';
 
 class GeneratePlanScreen extends StatefulWidget {
@@ -21,32 +22,32 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
   int _caloriesPerDay = 2000;
   int _mealsPerDay = 3;
 
-  final Map<String, Map<String, String>> _dietTypes = {
-    'balanced': {'emoji': '⚖️', 'label': 'Équilibré', 'desc': 'Répartition équilibrée des nutriments'},
-    'low-carb': {'emoji': '🥩', 'label': 'Faible en glucides', 'desc': 'Moins de glucides, plus de protéines'},
-    'high-protein': {'emoji': '💪', 'label': 'Riche en protéines', 'desc': 'Pour développer les muscles'},
-    'low-fat': {'emoji': '🥗', 'label': 'Faible en gras', 'desc': 'Réduire les matières grasses'},
-    'high-fiber': {'emoji': '🌾', 'label': 'Riche en fibres', 'desc': 'Pour une meilleure digestion'},
+  Map<String, Map<String, String>> _getDietTypes(bool isFrench) => {
+    'balanced': {'emoji': '⚖️', 'label': isFrench ? 'Équilibré' : 'Balanced', 'desc': isFrench ? 'Répartition équilibrée des nutriments' : 'Balanced nutrient distribution'},
+    'low-carb': {'emoji': '🥩', 'label': isFrench ? 'Faible en glucides' : 'Low Carb', 'desc': isFrench ? 'Moins de glucides, plus de protéines' : 'Less carbs, more protein'},
+    'high-protein': {'emoji': '💪', 'label': isFrench ? 'Riche en protéines' : 'High Protein', 'desc': isFrench ? 'Pour développer les muscles' : 'For muscle building'},
+    'low-fat': {'emoji': '🥗', 'label': isFrench ? 'Faible en gras' : 'Low Fat', 'desc': isFrench ? 'Réduire les matières grasses' : 'Reduce fat intake'},
+    'high-fiber': {'emoji': '🌾', 'label': isFrench ? 'Riche en fibres' : 'High Fiber', 'desc': isFrench ? 'Pour une meilleure digestion' : 'For better digestion'},
   };
 
-  final Map<String, Map<String, String>> _healthLabels = {
-    'vegetarian': {'emoji': '🥬', 'label': 'Végétarien'},
-    'vegan': {'emoji': '🌱', 'label': 'Végan'},
-    'gluten-free': {'emoji': '🌾', 'label': 'Sans gluten'},
-    'dairy-free': {'emoji': '🥛', 'label': 'Sans lactose'},
+  Map<String, Map<String, String>> _getHealthLabels(bool isFrench) => {
+    'vegetarian': {'emoji': '🥬', 'label': isFrench ? 'Végétarien' : 'Vegetarian'},
+    'vegan': {'emoji': '🌱', 'label': isFrench ? 'Végan' : 'Vegan'},
+    'gluten-free': {'emoji': '🌾', 'label': isFrench ? 'Sans gluten' : 'Gluten Free'},
+    'dairy-free': {'emoji': '🥛', 'label': isFrench ? 'Sans lactose' : 'Dairy Free'},
     'keto-friendly': {'emoji': '🥑', 'label': 'Keto'},
-    'paleo': {'emoji': '🦴', 'label': 'Paléo'},
+    'paleo': {'emoji': '🦴', 'label': isFrench ? 'Paléo' : 'Paleo'},
   };
 
-  final Map<String, Map<String, String>> _allergies = {
-    'peanuts': {'emoji': '🥜', 'label': 'Arachides'},
-    'tree-nuts': {'emoji': '🌰', 'label': 'Fruits à coque'},
-    'milk': {'emoji': '🥛', 'label': 'Lait'},
-    'eggs': {'emoji': '🥚', 'label': 'Œufs'},
-    'soy': {'emoji': '🫘', 'label': 'Soja'},
-    'wheat': {'emoji': '🌾', 'label': 'Blé'},
-    'fish': {'emoji': '🐟', 'label': 'Poisson'},
-    'shellfish': {'emoji': '🦐', 'label': 'Crustacés'},
+  Map<String, Map<String, String>> _getAllergies(bool isFrench) => {
+    'peanuts': {'emoji': '🥜', 'label': isFrench ? 'Arachides' : 'Peanuts'},
+    'tree-nuts': {'emoji': '🌰', 'label': isFrench ? 'Fruits à coque' : 'Tree Nuts'},
+    'milk': {'emoji': '🥛', 'label': isFrench ? 'Lait' : 'Milk'},
+    'eggs': {'emoji': '🥚', 'label': isFrench ? 'Œufs' : 'Eggs'},
+    'soy': {'emoji': '🫘', 'label': isFrench ? 'Soja' : 'Soy'},
+    'wheat': {'emoji': '🌾', 'label': isFrench ? 'Blé' : 'Wheat'},
+    'fish': {'emoji': '🐟', 'label': isFrench ? 'Poisson' : 'Fish'},
+    'shellfish': {'emoji': '🦐', 'label': isFrench ? 'Crustacés' : 'Shellfish'},
   };
 
   Future<void> _selectStartDate() async {
@@ -83,6 +84,8 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
   }
 
   Future<void> _generatePlan() async {
+    final isFrench = context.read<LocaleProvider>().isFrench;
+
     final requestData = {
       'startDate': DateFormatter.formatForApi(_startDate),
       'endDate': DateFormatter.formatForApi(_endDate),
@@ -102,10 +105,10 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
-            children: const [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Plan généré avec succès !'),
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(isFrench ? 'Plan généré avec succès !' : 'Plan generated successfully!'),
             ],
           ),
           backgroundColor: AppTheme.successGreen,
@@ -120,7 +123,7 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
             children: [
               const Icon(Icons.error_outline, color: Colors.white),
               const SizedBox(width: 8),
-              Expanded(child: Text(provider.error ?? 'Erreur lors de la génération')),
+              Expanded(child: Text(provider.error ?? (isFrench ? 'Erreur lors de la génération' : 'Error during generation'))),
             ],
           ),
           backgroundColor: AppTheme.errorRed,
@@ -135,10 +138,15 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
     final days = _endDate.difference(_startDate).inDays + 1;
     final themeProvider = context.watch<ThemeProvider>();
     final isDark = themeProvider.isDarkMode;
+    final isFrench = context.watch<LocaleProvider>().isFrench;
+
+    final dietTypes = _getDietTypes(isFrench);
+    final healthLabels = _getHealthLabels(isFrench);
+    final allergies = _getAllergies(isFrench);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Générer un Plan'),
+        title: Text(isFrench ? 'Générer un Plan' : 'Generate a Plan'),
         backgroundColor: AppTheme.primaryGreen,
         foregroundColor: Colors.white,
       ),
@@ -169,16 +177,18 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'Votre plan repas',
-                            style: TextStyle(
+                          Text(
+                            isFrench ? 'Votre plan repas' : 'Your meal plan',
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           Text(
-                            '$days jours • $_mealsPerDay repas/jour • $_caloriesPerDay kcal/jour',
+                            isFrench
+                              ? '$days jours • $_mealsPerDay repas/jour • $_caloriesPerDay kcal/jour'
+                              : '$days days • $_mealsPerDay meals/day • $_caloriesPerDay kcal/day',
                             style: const TextStyle(color: Colors.white70, fontSize: 14),
                           ),
                         ],
@@ -190,7 +200,11 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
               const SizedBox(height: 24),
 
               // Période
-              _buildSectionHeader('📆 Période', 'Définissez la durée de votre plan', isDark),
+              _buildSectionHeader(
+                '📆 ${isFrench ? 'Période' : 'Period'}',
+                isFrench ? 'Définissez la durée de votre plan' : 'Set the duration of your plan',
+                isDark
+              ),
               Card(
                 elevation: isDark ? 0 : 2,
                 color: isDark ? AppTheme.darkSurface : Colors.white,
@@ -210,7 +224,7 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
                         child: const Icon(Icons.play_arrow, color: AppTheme.primaryGreen),
                       ),
                       title: Text(
-                        'Date de début',
+                        isFrench ? 'Date de début' : 'Start date',
                         style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark),
                       ),
                       subtitle: Text(
@@ -234,7 +248,7 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
                         child: const Icon(Icons.stop, color: AppTheme.secondaryOrange),
                       ),
                       title: Text(
-                        'Date de fin',
+                        isFrench ? 'Date de fin' : 'End date',
                         style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark),
                       ),
                       subtitle: Text(
@@ -253,7 +267,11 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
               const SizedBox(height: 24),
 
               // Type de régime
-              _buildSectionHeader('🍽️ Type de régime', 'Choisissez votre style d\'alimentation', isDark),
+              _buildSectionHeader(
+                '🍽️ ${isFrench ? 'Type de régime' : 'Diet type'}',
+                isFrench ? 'Choisissez votre style d\'alimentation' : 'Choose your eating style',
+                isDark
+              ),
               Card(
                 elevation: isDark ? 0 : 2,
                 color: isDark ? AppTheme.darkSurface : Colors.white,
@@ -264,7 +282,7 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
-                    children: _dietTypes.entries.map((entry) {
+                    children: dietTypes.entries.map((entry) {
                       final isSelected = _selectedDietType == entry.key;
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -320,7 +338,11 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
               const SizedBox(height: 24),
 
               // Préférences alimentaires
-              _buildSectionHeader('🥗 Préférences alimentaires', 'Sélectionnez vos restrictions', isDark),
+              _buildSectionHeader(
+                '🥗 ${isFrench ? 'Préférences alimentaires' : 'Food preferences'}',
+                isFrench ? 'Sélectionnez vos restrictions' : 'Select your restrictions',
+                isDark
+              ),
               Card(
                 elevation: isDark ? 0 : 2,
                 color: isDark ? AppTheme.darkSurface : Colors.white,
@@ -333,7 +355,7 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: _healthLabels.entries.map((entry) {
+                    children: healthLabels.entries.map((entry) {
                       final isSelected = _selectedHealthLabels.contains(entry.key);
                       return InkWell(
                         onTap: () {
@@ -386,7 +408,11 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
               const SizedBox(height: 24),
 
               // Allergies
-              _buildSectionHeader('⚠️ Allergies', 'Exclure ces ingrédients', isDark),
+              _buildSectionHeader(
+                '⚠️ ${isFrench ? 'Allergies' : 'Allergies'}',
+                isFrench ? 'Exclure ces ingrédients' : 'Exclude these ingredients',
+                isDark
+              ),
               Card(
                 elevation: isDark ? 0 : 2,
                 color: isDark ? AppTheme.darkSurface : Colors.white,
@@ -399,7 +425,7 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
                   child: Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: _allergies.entries.map((entry) {
+                    children: allergies.entries.map((entry) {
                       final isSelected = _selectedAllergies.contains(entry.key);
                       return InkWell(
                         onTap: () {
@@ -452,7 +478,11 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
               const SizedBox(height: 24),
 
               // Calories par jour
-              _buildSectionHeader('🔥 Calories par jour', 'Ajustez votre apport calorique', isDark),
+              _buildSectionHeader(
+                '🔥 ${isFrench ? 'Calories par jour' : 'Calories per day'}',
+                isFrench ? 'Ajustez votre apport calorique' : 'Adjust your calorie intake',
+                isDark
+              ),
               Card(
                 elevation: isDark ? 0 : 2,
                 color: isDark ? AppTheme.darkSurface : Colors.white,
@@ -508,7 +538,11 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
               const SizedBox(height: 24),
 
               // Repas par jour
-              _buildSectionHeader('🍴 Repas par jour', 'Nombre de repas quotidiens', isDark),
+              _buildSectionHeader(
+                '🍴 ${isFrench ? 'Repas par jour' : 'Meals per day'}',
+                isFrench ? 'Nombre de repas quotidiens' : 'Number of daily meals',
+                isDark
+              ),
               Card(
                 elevation: isDark ? 0 : 2,
                 color: isDark ? AppTheme.darkSurface : Colors.white,
@@ -569,7 +603,9 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : const Icon(Icons.auto_awesome),
-                      label: Text(provider.isLoading ? 'Génération en cours...' : 'Générer mon plan repas'),
+                      label: Text(provider.isLoading
+                        ? (isFrench ? 'Génération en cours...' : 'Generating...')
+                        : (isFrench ? 'Générer mon plan repas' : 'Generate my meal plan')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryGreen,
                         foregroundColor: Colors.white,

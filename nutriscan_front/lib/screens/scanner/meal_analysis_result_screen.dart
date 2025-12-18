@@ -1,7 +1,10 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../services/ai_service.dart';
+import '../../providers/meal_provider.dart';
+import '../../utils/date_formatter.dart';
 
 /// Écran de résultat d'analyse de repas par IA
 class MealAnalysisResultScreen extends StatefulWidget {
@@ -92,6 +95,8 @@ class _MealAnalysisResultScreenState extends State<MealAnalysisResultScreen>
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
+                              // Bannière d'avertissement si données de démo
+                              if (_isDemoData(result)) _buildDemoWarningBanner(),
                               _buildImageWithConfidence(result),
                               const SizedBox(height: 24),
                               _buildAnalysisText(result),
@@ -113,6 +118,71 @@ class _MealAnalysisResultScreenState extends State<MealAnalysisResultScreen>
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  bool _isDemoData(MealPhotoAnalysisResponse result) {
+    return result.detectedFoods.any((food) =>
+      food.matchStatus == 'DEMO' ||
+      food.matchStatus == 'DEMO_DATA' ||
+      result.confidenceScore == 0
+    );
+  }
+
+  Widget _buildDemoWarningBanner() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFFFF9800).withOpacity(0.2),
+            const Color(0xFFFF5722).withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFF9800).withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF9800).withOpacity(0.3),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFFFB74D),
+              size: 24,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Données de démonstration',
+                  style: TextStyle(
+                    color: Color(0xFFFFB74D),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'L\'IA Gemini n\'est pas configurée. Ces données sont des exemples.',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -413,11 +483,24 @@ class _MealAnalysisResultScreenState extends State<MealAnalysisResultScreen>
   }
 
   Widget _buildDetectedFoodCard(DetectedFood food) {
-    final statusColor = food.matchStatus == 'AUTO_MATCHED'
-        ? const Color(0xFF00C853)
-        : food.matchStatus == 'CANDIDATES'
-            ? const Color(0xFFFFB74D)
-            : const Color(0xFF9E9E9E);
+    Color statusColor;
+    switch (food.matchStatus) {
+      case 'AUTO_MATCHED':
+        statusColor = const Color(0xFF00C853); // Vert
+        break;
+      case 'AI_DETECTED':
+        statusColor = const Color(0xFF2196F3); // Bleu
+        break;
+      case 'DEMO':
+      case 'DEMO_DATA':
+        statusColor = const Color(0xFFFF9800); // Orange - données de démo
+        break;
+      case 'CANDIDATES':
+        statusColor = const Color(0xFFFFB74D); // Jaune
+        break;
+      default:
+        statusColor = const Color(0xFF9E9E9E); // Gris
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -427,84 +510,118 @@ class _MealAnalysisResultScreenState extends State<MealAnalysisResultScreen>
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.white.withOpacity(0.1)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Indicateur de confiance circulaire
-          SizedBox(
-            width: 50,
-            height: 50,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                CircularProgressIndicator(
-                  value: food.confidence / 100,
-                  strokeWidth: 4,
-                  backgroundColor: Colors.white.withOpacity(0.1),
-                  valueColor: AlwaysStoppedAnimation<Color>(statusColor),
-                ),
-                Center(
-                  child: Text(
-                    '${food.confidence.toStringAsFixed(0)}%',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: statusColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 16),
-
-          // Infos de l'aliment
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  food.name,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(
+          Row(
+            children: [
+              // Indicateur de confiance circulaire
+              SizedBox(
+                width: 50,
+                height: 50,
+                child: Stack(
+                  fit: StackFit.expand,
                   children: [
-                    _buildStatusChip(food.matchStatus, statusColor),
-                    if (food.estimatedQuantityGrams != null) ...[
-                      const SizedBox(width: 8),
-                      Text(
-                        '~${food.estimatedQuantityGrams!.toStringAsFixed(0)}g',
+                    CircularProgressIndicator(
+                      value: food.confidence / 100,
+                      strokeWidth: 4,
+                      backgroundColor: Colors.white.withOpacity(0.1),
+                      valueColor: AlwaysStoppedAnimation<Color>(statusColor),
+                    ),
+                    Center(
+                      child: Text(
+                        '${food.confidence.toStringAsFixed(0)}%',
                         style: TextStyle(
-                          fontSize: 13,
-                          color: Colors.white.withOpacity(0.6),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: statusColor,
                         ),
                       ),
-                    ],
+                    ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 16),
+
+              // Infos de l'aliment
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      food.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _buildStatusChip(food.matchStatus, statusColor),
+                        if (food.estimatedQuantityGrams != null) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            '~${food.estimatedQuantityGrams!.toStringAsFixed(0)}g',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.6),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
 
-          // Flèche pour voir les détails
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              shape: BoxShape.circle,
+          // Afficher les valeurs nutritionnelles si disponibles
+          if (food.estimatedCalories != null && food.estimatedCalories! > 0) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildMiniNutrient('Kcal', food.estimatedCalories ?? 0, AppTheme.caloriesColor),
+                  _buildMiniNutrient('Prot', food.estimatedProteins ?? 0, AppTheme.proteinColor),
+                  _buildMiniNutrient('Gluc', food.estimatedCarbs ?? 0, AppTheme.carbsColor),
+                  _buildMiniNutrient('Lip', food.estimatedFats ?? 0, AppTheme.fatColor),
+                ],
+              ),
             ),
-            child: Icon(
-              Icons.chevron_right,
-              color: Colors.white.withOpacity(0.6),
-              size: 20,
-            ),
-          ),
+          ],
         ],
       ),
+    );
+  }
+
+  Widget _buildMiniNutrient(String label, double value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value.toStringAsFixed(1),
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Colors.white.withOpacity(0.5),
+          ),
+        ),
+      ],
     );
   }
 
@@ -516,6 +633,15 @@ class _MealAnalysisResultScreenState extends State<MealAnalysisResultScreen>
       case 'AUTO_MATCHED':
         label = 'Identifié';
         icon = Icons.check_circle;
+        break;
+      case 'AI_DETECTED':
+        label = 'IA';
+        icon = Icons.auto_awesome;
+        break;
+      case 'DEMO':
+      case 'DEMO_DATA':
+        label = 'Exemple';
+        icon = Icons.info_outline;
         break;
       case 'CANDIDATES':
         label = 'Suggestions';
@@ -647,19 +773,18 @@ class _MealAnalysisResultScreenState extends State<MealAnalysisResultScreen>
   }
 
   Map<String, double> _calculateTotalEstimate(MealPhotoAnalysisResponse result) {
-    // Estimation très simplifiée - en production, utiliser les données de la DB
+    // Utiliser les données nutritionnelles réelles du backend
     double totalCalories = 0;
     double totalProteins = 0;
     double totalCarbs = 0;
     double totalFats = 0;
 
     for (var food in result.detectedFoods) {
-      final quantity = food.estimatedQuantityGrams ?? 100;
-      // Estimation moyenne par 100g
-      totalCalories += (quantity / 100) * 150;
-      totalProteins += (quantity / 100) * 8;
-      totalCarbs += (quantity / 100) * 20;
-      totalFats += (quantity / 100) * 6;
+      // Utiliser les valeurs estimées par l'IA
+      totalCalories += food.estimatedCalories ?? 0;
+      totalProteins += food.estimatedProteins ?? 0;
+      totalCarbs += food.estimatedCarbs ?? 0;
+      totalFats += food.estimatedFats ?? 0;
     }
 
     return {
@@ -722,10 +847,7 @@ class _MealAnalysisResultScreenState extends State<MealAnalysisResultScreen>
       children: [
         // Bouton principal - Ajouter au journal
         GestureDetector(
-          onTap: () {
-            // TODO: Ajouter au journal des repas
-            Navigator.popUntil(context, (route) => route.isFirst);
-          },
+          onTap: () => _showAddToMealDialog(),
           child: Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 18),
@@ -792,6 +914,341 @@ class _MealAnalysisResultScreenState extends State<MealAnalysisResultScreen>
         ),
       ],
     );
+  }
+
+  void _showAddToMealDialog() {
+    String selectedMealType = widget.mealType ?? 'LUNCH';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF1A1A2E), Color(0xFF16213E)],
+            ),
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Titre
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.restaurant_menu, color: AppTheme.primaryGreen, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'Ajouter au journal',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close, color: Colors.white.withOpacity(0.6)),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Sélection du type de repas
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Type de repas',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white70,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _buildMealTypeChip('BREAKFAST', '🌅', 'Petit-déjeuner', selectedMealType, (type) {
+                    setModalState(() => selectedMealType = type);
+                  }),
+                  _buildMealTypeChip('LUNCH', '☀️', 'Déjeuner', selectedMealType, (type) {
+                    setModalState(() => selectedMealType = type);
+                  }),
+                  _buildMealTypeChip('DINNER', '🌙', 'Dîner', selectedMealType, (type) {
+                    setModalState(() => selectedMealType = type);
+                  }),
+                  _buildMealTypeChip('SNACK', '🍎', 'Collation', selectedMealType, (type) {
+                    setModalState(() => selectedMealType = type);
+                  }),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Résumé des aliments
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${widget.analysisResult.detectedFoods.length} aliment(s) détecté(s)',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ...widget.analysisResult.detectedFoods.take(3).map((food) => Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryGreen,
+                              borderRadius: BorderRadius.circular(3),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              food.name,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.white.withOpacity(0.8),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          Text(
+                            '${food.estimatedCalories?.toStringAsFixed(0) ?? '?'} kcal',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.white.withOpacity(0.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )),
+                    if (widget.analysisResult.detectedFoods.length > 3)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          '+ ${widget.analysisResult.detectedFoods.length - 3} autre(s)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.white.withOpacity(0.5),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Bouton de confirmation
+              GestureDetector(
+                onTap: () => _addMealToJournal(selectedMealType),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF00C853), Color(0xFF00E676)],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF00C853).withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.white, size: 22),
+                      SizedBox(width: 10),
+                      Text(
+                        'Confirmer',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMealTypeChip(String type, String emoji, String label, String selected, Function(String) onSelect) {
+    final isSelected = type == selected;
+    return GestureDetector(
+      onTap: () => onSelect(type),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryGreen.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryGreen : Colors.white.withOpacity(0.1),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? AppTheme.primaryGreen : Colors.white.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addMealToJournal(String mealType) async {
+    Navigator.pop(context); // Fermer le dialog
+
+    // Afficher un indicateur de chargement
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+      ),
+    );
+
+    try {
+      final mealProvider = context.read<MealProvider>();
+      final today = DateFormatter.formatForApi(DateTime.now());
+
+      // Créer les items du repas à partir des aliments détectés
+      final items = widget.analysisResult.detectedFoods.map((food) => {
+        'foodName': food.name,
+        'quantity': food.estimatedQuantityGrams ?? 100.0,
+        'servingUnit': 'g',
+        'calories': food.estimatedCalories ?? 0.0,
+        'protein': food.estimatedProteins ?? 0.0,
+        'carbs': food.estimatedCarbs ?? 0.0,
+        'fat': food.estimatedFats ?? 0.0,
+        if (food.suggestedFoodId != null) 'foodId': food.suggestedFoodId,
+      }).toList();
+
+      final mealData = {
+        'date': today,
+        'mealType': mealType,
+        'source': 'AI_SCAN',
+        'items': items,
+      };
+
+      final success = await mealProvider.createMeal(mealData);
+
+      if (!mounted) return;
+      Navigator.pop(context); // Fermer le dialog de chargement
+
+      if (success) {
+        // Afficher un message de succès
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Text('Repas ajouté avec ${items.length} aliment(s)'),
+              ],
+            ),
+            backgroundColor: AppTheme.primaryGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+
+        // Retourner true à l'écran appelant (scanner) pour signaler le succès
+        Navigator.pop(context, true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Erreur lors de l\'ajout du repas'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Fermer le dialog de chargement
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Erreur: ${e.toString()}')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
   }
 }
 

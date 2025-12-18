@@ -32,14 +32,6 @@ class Recipe {
   });
 
   factory Recipe.fromJson(Map<String, dynamic> json) {
-    // Debug logging
-    print('🍽️ === Parsing Recipe ===');
-    print('🍽️ JSON keys: ${json.keys.toList()}');
-    print('🍽️ label: ${json['label']}');
-    print('🍽️ name: ${json['name']}');
-    print('🍽️ calories (direct): ${json['calories']}');
-    print('🍽️ nutrition object: ${json['nutrition']}');
-
     // Parser les données nutritionnelles depuis le sous-objet 'nutrition' si présent
     final nutrition = json['nutrition'] as Map<String, dynamic>?;
 
@@ -50,7 +42,6 @@ class Recipe {
     double fats = 0;
 
     if (nutrition != null) {
-      print('🍽️ nutrition keys: ${nutrition.keys.toList()}');
       // Format avec sous-objet nutrition (format backend RecipeResponse)
       calories = _parseDouble(nutrition['calories'] ?? json['calories']);
       proteins = _parseDouble(nutrition['protein'] ?? nutrition['proteins']);
@@ -64,7 +55,6 @@ class Recipe {
       fats = _parseDouble(json['fats'] ?? json['fat']);
     }
 
-    print('🍽️ Parsed: calories=$calories, proteins=$proteins, carbs=$carbs, fats=$fats');
 
     return Recipe(
       id: json['uri'] as String? ?? json['id'] as String?,

@@ -16,7 +16,6 @@ class MealPlannerService {
       }
       return [];
     } catch (e) {
-      print('❌ getMealPlans error: $e');
       rethrow;
     }
   }
@@ -27,7 +26,6 @@ class MealPlannerService {
       final response = await _apiService.get('/meal-planner/$id');
       return MealPlan.fromJson(response as Map<String, dynamic>);
     } catch (e) {
-      print('❌ getMealPlanById error: $e');
       rethrow;
     }
   }
@@ -38,7 +36,6 @@ class MealPlannerService {
       final response = await _apiService.post('/meal-planner/generate', preferences);
       return MealPlan.fromJson(response);
     } catch (e) {
-      print('❌ generateMealPlan error: $e');
       rethrow;
     }
   }
@@ -48,7 +45,6 @@ class MealPlannerService {
       // Backend endpoint: DELETE /api/meal-planner/{id}
       await _apiService.delete('/meal-planner/$id');
     } catch (e) {
-      print('❌ deleteMealPlan error: $e');
       rethrow;
     }
   }
@@ -59,7 +55,6 @@ class MealPlannerService {
       final response = await _apiService.get('/meal-planner/latest');
       return MealPlan.fromJson(response as Map<String, dynamic>);
     } catch (e) {
-      print('❌ getCurrentWeekPlan error: $e');
       // Retourner null si pas de plan (404)
       if (e.toString().contains('404') || e.toString().contains('non trouvée')) {
         return null;
@@ -104,9 +99,7 @@ class MealPlannerService {
       }
       return [];
     } catch (e) {
-      print('❌ searchRecipes error: $e');
       rethrow;
     }
   }
 }
-

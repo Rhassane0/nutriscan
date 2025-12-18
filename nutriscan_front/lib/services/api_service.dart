@@ -12,8 +12,8 @@ class ApiService {
   static const String baseUrl = 'http://localhost:8082/api';
   String? _token;
 
-  // Mode debug - mettre à false pour désactiver les logs détaillés
-  static const bool _debugMode = true;
+  // Désactivé par défaut pour ne pas polluer les logs en production/developpement normal
+  static const bool _debugMode = false;
 
   // Log uniquement en mode debug
   void _log(String message) {

@@ -88,30 +88,23 @@ class AiService {
         url += '&calories=$maxCalories';
       }
 
-      print('🔍 Searching recipes with URL: $url');
       final response = await _apiService.get(url);
-      print('📦 Recipe search response type: ${response.runtimeType}');
 
       if (response is List) {
-        print('📦 Found ${response.length} recipes');
         final recipes = <Recipe>[];
         for (var json in response) {
-          print('📄 Recipe JSON: $json');
           try {
             final recipe = Recipe.fromJson(json as Map<String, dynamic>);
-            print('✅ Parsed recipe: ${recipe.name}, calories: ${recipe.calories}, proteins: ${recipe.proteins}');
             recipes.add(recipe);
           } catch (e) {
-            print('⚠️ Error parsing recipe: $e');
+            // Ignorer les erreurs de parsing silencieusement
           }
         }
         return recipes;
       }
 
-      print('⚠️ Response is not a list');
       return [];
     } catch (e) {
-      print('❌ searchRecipes error: $e');
       rethrow;
     }
   }
@@ -139,7 +132,7 @@ class MealPhotoAnalysisResponse {
     );
   }
 
-  /// Calcul du total nutritionnel estimé
+  /// Calcul du total nutritionnel estimé à partir des aliments détectés
   NutritionInfo get totalNutrition {
     double totalCalories = 0;
     double totalProteins = 0;
@@ -147,8 +140,10 @@ class MealPhotoAnalysisResponse {
     double totalFats = 0;
 
     for (var food in detectedFoods) {
-      // Estimation basique par portion de 100g
-      totalCalories += food.estimatedQuantityGrams ?? 0;
+      totalCalories += food.estimatedCalories ?? 0;
+      totalProteins += food.estimatedProteins ?? 0;
+      totalCarbs += food.estimatedCarbs ?? 0;
+      totalFats += food.estimatedFats ?? 0;
     }
 
     return NutritionInfo(
@@ -164,6 +159,10 @@ class DetectedFood {
   final String name;
   final double confidence;
   final double? estimatedQuantityGrams;
+  final double? estimatedCalories;
+  final double? estimatedProteins;
+  final double? estimatedCarbs;
+  final double? estimatedFats;
   final int? suggestedFoodId;
   final String matchStatus;
   final List<FoodCandidate> candidates;
@@ -172,6 +171,10 @@ class DetectedFood {
     required this.name,
     required this.confidence,
     this.estimatedQuantityGrams,
+    this.estimatedCalories,
+    this.estimatedProteins,
+    this.estimatedCarbs,
+    this.estimatedFats,
     this.suggestedFoodId,
     required this.matchStatus,
     required this.candidates,
@@ -182,6 +185,10 @@ class DetectedFood {
       name: json['name'] as String? ?? 'Aliment inconnu',
       confidence: (json['confidence'] as num?)?.toDouble() ?? 0,
       estimatedQuantityGrams: (json['estimatedQuantityGrams'] as num?)?.toDouble(),
+      estimatedCalories: (json['estimatedCalories'] as num?)?.toDouble(),
+      estimatedProteins: (json['estimatedProteins'] as num?)?.toDouble(),
+      estimatedCarbs: (json['estimatedCarbs'] as num?)?.toDouble(),
+      estimatedFats: (json['estimatedFats'] as num?)?.toDouble(),
       suggestedFoodId: json['suggestedFoodId'] as int?,
       matchStatus: json['matchStatus'] as String? ?? 'NOT_FOUND',
       candidates: (json['candidates'] as List?)

@@ -1,8 +1,11 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../config/theme.dart';
 import '../../models/scan_result.dart';
+import '../../providers/meal_provider.dart';
+import '../../utils/date_formatter.dart';
 
 /// Écran de résultat du scan de code-barres avec design détaillé
 class BarcodeScanResultScreen extends StatefulWidget {
@@ -1208,7 +1211,7 @@ class _BarcodeScanResultScreenState extends State<BarcodeScanResultScreen>
         GestureDetector(
           onTap: () {
             HapticFeedback.mediumImpact();
-            Navigator.popUntil(context, (route) => route.isFirst);
+            _showAddToMealDialog();
           },
           child: Container(
             width: double.infinity,
@@ -1251,6 +1254,400 @@ class _BarcodeScanResultScreenState extends State<BarcodeScanResultScreen>
         ),
       ],
     );
+  }
+
+  void _showAddToMealDialog() {
+    String selectedMealType = 'LUNCH';
+    double quantity = 100.0;
+    final result = widget.scanResult;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          margin: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0D1F1B), Color(0xFF1A3A32)],
+            ),
+            borderRadius: BorderRadius.circular(28),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Titre
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryGreen.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(Icons.restaurant_menu, color: AppTheme.primaryGreen, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Ajouter au journal',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          result.productName,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.white.withOpacity(0.6),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close, color: Colors.white.withOpacity(0.6)),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Sélection du type de repas
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Type de repas',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white70,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _buildMealTypeChip('BREAKFAST', '🌅', 'Petit-déjeuner', selectedMealType, (type) {
+                    setModalState(() => selectedMealType = type);
+                  }),
+                  _buildMealTypeChip('LUNCH', '☀️', 'Déjeuner', selectedMealType, (type) {
+                    setModalState(() => selectedMealType = type);
+                  }),
+                  _buildMealTypeChip('DINNER', '🌙', 'Dîner', selectedMealType, (type) {
+                    setModalState(() => selectedMealType = type);
+                  }),
+                  _buildMealTypeChip('SNACK', '🍎', 'Collation', selectedMealType, (type) {
+                    setModalState(() => selectedMealType = type);
+                  }),
+                ],
+              ),
+
+              const SizedBox(height: 24),
+
+              // Quantité
+              const Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Quantité (grammes)',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white70,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Row(
+                children: [
+                  _buildQuantityButton(Icons.remove, () {
+                    if (quantity > 10) {
+                      setModalState(() => quantity -= 10);
+                    }
+                  }),
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        '${quantity.toStringAsFixed(0)} g',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                  _buildQuantityButton(Icons.add, () {
+                    setModalState(() => quantity += 10);
+                  }),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Apport nutritionnel estimé
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withOpacity(0.1)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildNutrientPreview('🔥', (result.nutritionInfo.calories ?? 0) * quantity / 100, 'kcal'),
+                    _buildNutrientPreview('🥩', (result.nutritionInfo.proteins ?? 0) * quantity / 100, 'g'),
+                    _buildNutrientPreview('🍞', (result.nutritionInfo.carbs ?? 0) * quantity / 100, 'g'),
+                    _buildNutrientPreview('🥑', (result.nutritionInfo.fats ?? 0) * quantity / 100, 'g'),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 24),
+
+              // Bouton de confirmation
+              GestureDetector(
+                onTap: () => _addBarcodeProductToJournal(selectedMealType, quantity),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppTheme.primaryGreen, AppTheme.primaryGreenDark],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppTheme.primaryGreen.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.white, size: 22),
+                      SizedBox(width: 10),
+                      Text(
+                        'Confirmer',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMealTypeChip(String type, String emoji, String label, String selected, Function(String) onSelect) {
+    final isSelected = type == selected;
+    return GestureDetector(
+      onTap: () => onSelect(type),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primaryGreen.withOpacity(0.2) : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryGreen : Colors.white.withOpacity(0.1),
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 18)),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                color: isSelected ? AppTheme.primaryGreen : Colors.white.withOpacity(0.8),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuantityButton(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryGreen.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppTheme.primaryGreen.withOpacity(0.3)),
+        ),
+        child: Icon(icon, color: AppTheme.primaryGreen, size: 24),
+      ),
+    );
+  }
+
+  Widget _buildNutrientPreview(String emoji, double value, String unit) {
+    return Column(
+      children: [
+        Text(emoji, style: const TextStyle(fontSize: 20)),
+        const SizedBox(height: 4),
+        Text(
+          value.toStringAsFixed(1),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        Text(
+          unit,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.white.withOpacity(0.5),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _addBarcodeProductToJournal(String mealType, double quantity) async {
+    Navigator.pop(context); // Fermer le dialog
+
+    // Afficher un indicateur de chargement
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryGreen),
+      ),
+    );
+
+    try {
+      final mealProvider = context.read<MealProvider>();
+      final today = DateFormatter.formatForApi(DateTime.now());
+      final result = widget.scanResult;
+
+      // Calculer les nutriments pour la quantité donnée
+      final factor = quantity / 100.0;
+
+      final items = [{
+        'foodName': result.productName,
+        'quantity': quantity,
+        'servingUnit': 'g',
+        'calories': (result.nutritionInfo.calories ?? 0) * factor,
+        'protein': (result.nutritionInfo.proteins ?? 0) * factor,
+        'carbs': (result.nutritionInfo.carbs ?? 0) * factor,
+        'fat': (result.nutritionInfo.fats ?? 0) * factor,
+      }];
+
+      final mealData = {
+        'date': today,
+        'mealType': mealType,
+        'source': 'BARCODE_SCAN',
+        'items': items,
+      };
+
+      final success = await mealProvider.createMeal(mealData);
+
+      if (!mounted) return;
+      Navigator.pop(context); // Fermer le dialog de chargement
+
+      if (success) {
+        // Afficher un message de succès
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text('${result.productName} ajouté au journal'),
+                ),
+              ],
+            ),
+            backgroundColor: AppTheme.primaryGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+
+        // Retourner true à l'écran appelant pour signaler le succès
+        Navigator.pop(context, true);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Erreur lors de l\'ajout du repas'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Fermer le dialog de chargement
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Erreur: ${e.toString()}')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
   }
 }
 

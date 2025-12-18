@@ -5,6 +5,7 @@ import '../../models/recipe.dart';
 import '../../services/ai_service.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/locale_provider.dart';
 
 class RecipeSearchScreen extends StatefulWidget {
   const RecipeSearchScreen({super.key});
@@ -91,7 +92,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Recherche de Recettes'),
+        title: Text(context.tr('recipe_search')),
         backgroundColor: AppTheme.primaryGreen,
         foregroundColor: Colors.white,
         actions: [
@@ -129,7 +130,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                       color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
                     ),
                     decoration: InputDecoration(
-                      hintText: 'Rechercher une recette (ex: poulet, salade...)',
+                      hintText: context.tr('search_placeholder'),
                       hintStyle: TextStyle(
                         color: isDark ? AppTheme.darkTextTertiary : Colors.grey[500],
                       ),
@@ -172,7 +173,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                               child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                             )
                           : const Icon(Icons.search),
-                      label: Text(_isLoading ? 'Recherche...' : 'Rechercher'),
+                      label: Text(_isLoading ? context.tr('loading') : context.tr('search')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryGreen,
                         foregroundColor: Colors.white,
@@ -221,7 +222,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                         _selectedDiet = 'Tous';
                         _selectedHealthLabels.clear();
                       }),
-                      child: const Text('Effacer', style: TextStyle(color: AppTheme.errorRed)),
+                      child: Text(context.tr('clear'), style: const TextStyle(color: AppTheme.errorRed)),
                     ),
                   ],
                 ),
@@ -230,7 +231,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
             // Contenu principal
             Expanded(
               child: _isLoading
-                  ? const LoadingIndicator(message: 'Recherche de recettes...')
+                  ? LoadingIndicator(message: context.tr('searching_recipes'))
                   : _error != null
                       ? _buildErrorState(isDark)
                       : _recipes.isEmpty
@@ -279,7 +280,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Oups ! Une erreur est survenue',
+              context.tr('oops_error'),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -296,7 +297,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
             ElevatedButton.icon(
               onPressed: () => _searchRecipes(),
               icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'),
+              label: Text(context.tr('retry')),
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryGreen, foregroundColor: Colors.white),
             ),
           ],
@@ -307,6 +308,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
 
   Widget _buildEmptyState(bool isDark) {
     final hasSearched = _searchController.text.isNotEmpty;
+    final isFrench = context.watch<LocaleProvider>().isFrench;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -323,7 +325,9 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
           ),
           const SizedBox(height: 24),
           Text(
-            hasSearched ? 'Aucune recette trouvée pour "${_searchController.text}"' : 'Recherchez des recettes',
+            hasSearched
+              ? (isFrench ? 'Aucune recette trouvée pour "${_searchController.text}"' : 'No recipes found for "${_searchController.text}"')
+              : context.tr('start_search'),
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -334,8 +338,8 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
           const SizedBox(height: 8),
           Text(
             hasSearched
-                ? 'Essayez avec des termes plus généraux comme "chicken", "pasta", "salad"...'
-                : 'Entrez un ingrédient ou un plat pour commencer',
+                ? (isFrench ? 'Essayez avec des termes plus généraux comme "chicken", "pasta", "salad"...' : 'Try more general terms like "chicken", "pasta", "salad"...')
+                : context.tr('enter_search_term'),
             style: TextStyle(fontSize: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
@@ -355,7 +359,9 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Conseil : Utilisez des termes en anglais pour plus de résultats (chicken, beef, fish...)',
+                      isFrench
+                        ? 'Conseil : Utilisez des termes en anglais pour plus de résultats (chicken, beef, fish...)'
+                        : 'Tip: Use English terms for more results (chicken, beef, fish...)',
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? AppTheme.darkTextSecondary : Colors.grey[700],
@@ -369,7 +375,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
 
           const SizedBox(height: 32),
           Text(
-            'Suggestions populaires',
+            context.tr('popular_searches'),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -662,7 +668,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                         Row(
                           children: [
                             Text(
-                              '🔍 Filtres',
+                              '🔍 ${context.tr('filters')}',
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
@@ -679,7 +685,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                         const SizedBox(height: 24),
 
                         Text(
-                          '🍽️ Type de régime',
+                          '🍽️ ${context.tr('diet_type')}',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -714,7 +720,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                         const SizedBox(height: 24),
 
                         Text(
-                          '⚠️ Restrictions',
+                          '⚠️ ${context.tr('health_labels')}',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -757,7 +763,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                         Row(
                           children: [
                             Text(
-                              '🔥 Calories max',
+                              '🔥 ${context.tr('max_calories')}',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -798,7 +804,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                               if (_searchController.text.isNotEmpty) _searchRecipes();
                             },
                             icon: const Icon(Icons.check),
-                            label: const Text('Appliquer'),
+                            label: Text(context.tr('apply_filters')),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.primaryGreen,
                               foregroundColor: Colors.white,
@@ -1031,7 +1037,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                           children: [
                             Icon(Icons.list_alt, color: AppTheme.accentTeal, size: 20),
                             const SizedBox(width: 8),
-                            Text('Ingrédients', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textDark)),
+                            Text(context.tr('ingredients'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: isDark ? Colors.white : AppTheme.textDark)),
                             const Spacer(),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1139,7 +1145,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                                 Icon(Icons.link, color: Colors.blue, size: 20),
                                 const SizedBox(width: 10),
                                 Expanded(
-                                  child: Text('Voir la recette originale', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600)),
+                                  child: Text(context.watch<LocaleProvider>().isFrench ? 'Voir la recette originale' : 'View original recipe', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600)),
                                 ),
                                 Icon(Icons.open_in_new, color: Colors.blue, size: 18),
                               ],
@@ -1156,7 +1162,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                             child: OutlinedButton.icon(
                               onPressed: () => Navigator.pop(context),
                               icon: const Icon(Icons.close, size: 18),
-                              label: const Text('Fermer'),
+                              label: Text(context.tr('close')),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: isDark ? Colors.white70 : Colors.grey[700],
                                 side: BorderSide(color: isDark ? Colors.white30 : Colors.grey[400]!),

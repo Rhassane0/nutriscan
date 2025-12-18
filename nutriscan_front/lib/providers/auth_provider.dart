@@ -86,7 +86,6 @@ class AuthProvider with ChangeNotifier {
       }
     } catch (e) {
       // Ignorer les erreurs silencieusement
-      print('Erreur lors du rafraîchissement utilisateur: $e');
     }
   }
 

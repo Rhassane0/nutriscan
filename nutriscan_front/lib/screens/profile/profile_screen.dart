@@ -215,9 +215,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: const Icon(Icons.verified, color: AppTheme.primaryGreen, size: 16),
                   ),
                   const SizedBox(width: 8),
-                  const Text(
-                    'Membre NutriScan',
-                    style: TextStyle(
+                  Text(
+                    context.watch<LocaleProvider>().isFrench ? 'Membre NutriScan' : 'NutriScan Member',
+                    style: const TextStyle(
                       fontSize: 13,
                       color: AppTheme.primaryGreen,
                       fontWeight: FontWeight.w700,
@@ -233,13 +233,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildQuickStats(bool isDark, int calories, int mealCount, int progress) {
+    final localeProvider = context.watch<LocaleProvider>();
+    final isFrench = localeProvider.isFrench;
+
     return Row(
       children: [
-        Expanded(child: _buildStatCard('🔥', '$calories', 'Calories\naujourd\'hui', AppTheme.caloriesColor, isDark)),
+        Expanded(child: _buildStatCard('🔥', '$calories', isFrench ? 'Calories\naujourd\'hui' : 'Calories\ntoday', AppTheme.caloriesColor, isDark)),
         const SizedBox(width: 12),
-        Expanded(child: _buildStatCard('📊', '$mealCount', 'Repas\nsuivis', AppTheme.accentBlue, isDark)),
+        Expanded(child: _buildStatCard('📊', '$mealCount', isFrench ? 'Repas\nsuivis' : 'Meals\ntracked', AppTheme.accentBlue, isDark)),
         const SizedBox(width: 12),
-        Expanded(child: _buildStatCard('🎯', '$progress%', 'Objectif\natteint', AppTheme.primaryGreen, isDark)),
+        Expanded(child: _buildStatCard('🎯', '$progress%', isFrench ? 'Objectif\natteint' : 'Goal\nachieved', AppTheme.primaryGreen, isDark)),
       ],
     );
   }
@@ -326,7 +329,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Apparence',
+                      context.watch<LocaleProvider>().isFrench ? 'Apparence' : 'Appearance',
                       style: TextStyle(
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
@@ -334,7 +337,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     Text(
-                      isDark ? 'Mode sombre activé' : 'Mode clair activé',
+                      isDark
+                        ? (context.watch<LocaleProvider>().isFrench ? 'Mode sombre activé' : 'Dark mode enabled')
+                        : (context.watch<LocaleProvider>().isFrench ? 'Mode clair activé' : 'Light mode enabled'),
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
@@ -727,40 +732,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildLogoutButton(BuildContext context, AuthProvider authProvider, bool isDark) {
+    final isFrench = context.watch<LocaleProvider>().isFrench;
+
     return GestureDetector(
       onTap: () async {
         final confirm = await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
+          builder: (dialogContext) => AlertDialog(
             backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: Text(
-              'Déconnexion',
+              isFrench ? 'Déconnexion' : 'Logout',
               style: TextStyle(
                 color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
               ),
             ),
             content: Text(
-              'Voulez-vous vraiment vous déconnecter ?',
+              isFrench ? 'Voulez-vous vraiment vous déconnecter ?' : 'Are you sure you want to log out?',
               style: TextStyle(
                 color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
               ),
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.pop(context, false),
+                onPressed: () => Navigator.pop(dialogContext, false),
                 child: Text(
-                  'Annuler',
+                  isFrench ? 'Annuler' : 'Cancel',
                   style: TextStyle(
                     color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
                   ),
                 ),
               ),
               TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text(
-                  'Déconnecter',
-                  style: TextStyle(color: AppTheme.errorRed),
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: Text(
+                  isFrench ? 'Déconnecter' : 'Logout',
+                  style: const TextStyle(color: AppTheme.errorRed),
                 ),
               ),
             ],
@@ -787,14 +794,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
             color: AppTheme.errorRed.withOpacity(0.3),
           ),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.logout_rounded, color: AppTheme.errorRed, size: 22),
-            SizedBox(width: 12),
+            const Icon(Icons.logout_rounded, color: AppTheme.errorRed, size: 22),
+            const SizedBox(width: 12),
             Text(
-              'Se déconnecter',
-              style: TextStyle(
+              isFrench ? 'Se déconnecter' : 'Log out',
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: AppTheme.errorRed,
