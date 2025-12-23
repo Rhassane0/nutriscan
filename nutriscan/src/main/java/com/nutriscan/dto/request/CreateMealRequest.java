@@ -1,6 +1,7 @@
 package com.nutriscan.dto.request;
 
 import com.nutriscan.model.enums.MealSource;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -13,19 +14,20 @@ import java.util.List;
 @Setter
 public class CreateMealRequest {
 
-    @NotNull
+    @NotNull(message = "La date est requise")
     private LocalDate date;
 
-    @NotNull
+    // Time est optionnel - si non fourni, on utilisera l'heure courante
     private LocalTime time;
 
-    @NotBlank
+    @NotBlank(message = "Le type de repas est requis")
     private String mealType; // "BREAKFAST", "LUNCH", etc.
 
     // Source optionnel - par défaut MANUAL
     private MealSource source;
 
-    @NotEmpty
+    @NotEmpty(message = "Au moins un aliment est requis")
+    @Valid
     private List<MealItemDto> items;
 
     @Getter
@@ -34,25 +36,27 @@ public class CreateMealRequest {
 
         /**
          * Either foodId (for local DB foods) OR foodName (for API foods)
-         * If foodId is provided, fetch from local DB
-         * If foodName + apiSource is provided, fetch from API (Edamam or OpenFoodFacts)
          */
         private Long foodId;  // Optional: local DB reference
 
         private String foodName;  // Required if foodId is not provided
-        private String apiSource;  // "EDAMAM" or "OPENFOODFACTS" - required if foodName is provided
+        private String apiSource;  // "EDAMAM" or "OPENFOODFACTS"
 
-        @NotNull
-        @Positive
-        private Double quantity; // same unit as serving (e.g. grams)
+        // Quantity - flexible pour accepter différents formats
+        private Double quantity;
 
         private String servingUnit; // "g", "ml", "piece", etc.
 
-        // Nutrition data (can be pre-filled from API or calculated)
+        // Nutrition data
         private Double calories;
         private Double protein;
         private Double carbs;
         private Double fat;
+
+        // Getter avec valeur par défaut pour quantity
+        public Double getQuantity() {
+            return quantity != null ? quantity : 100.0;
+        }
     }
 }
 

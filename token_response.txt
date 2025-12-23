@@ -1,0 +1,1 @@
+{"status":500,"errorType":"INTERNAL_ERROR","message":"Une erreur interne s'est produite. Veuillez réessayer plus tard. (Détail: No static resource api/v1/auth/login.)","timestamp":"2025-12-12T21:51:28.1928413","path":"/api/v1/auth/login"}

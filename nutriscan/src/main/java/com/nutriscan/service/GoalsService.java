@@ -5,6 +5,7 @@ import com.nutriscan.dto.response.GoalsResponse;
 import com.nutriscan.model.DailyTargets;
 import com.nutriscan.model.User;
 import com.nutriscan.model.enums.ActivityLevel;
+import com.nutriscan.model.enums.Gender;
 import com.nutriscan.model.enums.GoalType;
 import com.nutriscan.repository.DailyTargetsRepository;
 import com.nutriscan.repository.UserRepository;
@@ -134,45 +135,32 @@ public class GoalsService {
             User user = userRepository.findById(userId)
                     .orElseThrow(() -> new IllegalArgumentException("User not found with id: " + userId));
 
-            // Vérifier que le profil est complet
-            if (user.getGender() == null) {
-                log.warn("User {} has no gender set", userId);
-                throw new IllegalStateException("User gender is required for goal calculation");
-            }
-            if (user.getInitialWeightKg() == null) {
-                log.warn("User {} has no weight set", userId);
-                throw new IllegalStateException("User weight is required for goal calculation");
-            }
-            if (user.getHeightCm() == null) {
-                log.warn("User {} has no height set", userId);
-                throw new IllegalStateException("User height is required for goal calculation");
-            }
-            if (user.getAge() == null) {
-                log.warn("User {} has no age set", userId);
-                throw new IllegalStateException("User age is required for goal calculation");
-            }
-            if (user.getActivityLevel() == null) {
-                log.warn("User {} has no activity level set", userId);
-                throw new IllegalStateException("User activity level is required for goal calculation");
-            }
+            // Utiliser des valeurs par défaut si le profil n'est pas complet
+            Gender gender = user.getGender() != null ? user.getGender() : Gender.MALE;
+            double weight = user.getInitialWeightKg() != null ? user.getInitialWeightKg() : 70.0;
+            int height = user.getHeightCm() != null ? user.getHeightCm() : 170;
+            int age = user.getAge() != null ? user.getAge() : 30;
+            ActivityLevel activityLevel = user.getActivityLevel() != null ? user.getActivityLevel() : ActivityLevel.MODERATE;
+            GoalType goalType = user.getGoalType() != null ? user.getGoalType() : GoalType.MAINTAIN;
+
+            log.info("Calculating targets for user {} with gender={}, weight={}, height={}, age={}, activity={}, goal={}",
+                    userId, gender, weight, height, age, activityLevel, goalType);
 
             // Calculer TDEE
             double tdee = NutritionUtils.calculateTdee(
-                    user.getGender(),
-                    user.getInitialWeightKg(),
-                    user.getHeightCm(),
-                    user.getAge(),
-                    user.getActivityLevel()
+                    gender,
+                    weight,
+                    height,
+                    age,
+                    activityLevel
             );
 
-            // Si pas de goalType, utiliser MAINTAIN comme défaut
-            GoalType goalType = user.getGoalType() != null ? user.getGoalType() : GoalType.MAINTAIN;
             double targetCalories = NutritionUtils.adjustCaloriesForGoal(tdee, goalType);
 
             // Calculer macros
             NutritionUtils.MacroTargets macros = NutritionUtils.calculateMacroTargets(
                     targetCalories,
-                    user.getInitialWeightKg(),
+                    weight,
                     goalType
             );
 

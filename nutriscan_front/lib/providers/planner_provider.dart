@@ -20,6 +20,18 @@ class PlannerProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
+  void _log(String message) {
+    if (kDebugMode) {
+      print('📅 [PlannerProvider] $message');
+    }
+  }
+
+  void _logError(String message) {
+    if (kDebugMode) {
+      print('❌ [PlannerProvider ERROR] $message');
+    }
+  }
+
   // Générer un plan de repas
   Future<bool> generateMealPlan(Map<String, dynamic> preferences) async {
     _isLoading = true;
@@ -27,11 +39,14 @@ class PlannerProvider with ChangeNotifier {
     notifyListeners();
 
     try {
+      _log('Generating meal plan with preferences: $preferences');
       _currentPlan = await _mealPlannerService.generateMealPlan(preferences);
+      _log('Meal plan generated successfully: ${_currentPlan?.id}');
       _isLoading = false;
       notifyListeners();
       return true;
     } catch (e) {
+      _logError('generateMealPlan: $e');
       _error = e.toString();
       _isLoading = false;
       notifyListeners();
@@ -46,15 +61,26 @@ class PlannerProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      _currentPlan = await _mealPlannerService.getCurrentWeekPlan();
+      _log('Loading current week plan...');
+      final plan = await _mealPlannerService.getCurrentWeekPlan();
+      // Vérifier que le plan est valide (id > 0 et a des repas)
+      if (plan != null && plan.id > 0 && plan.meals.isNotEmpty) {
+        _currentPlan = plan;
+        _log('Current plan loaded: #${plan.id} with ${plan.meals.length} meals');
+      } else {
+        _currentPlan = null;
+        _log('No valid current plan found');
+      }
       _isLoading = false;
       notifyListeners();
     } catch (e) {
       // Si c'est une erreur 404, ce n'est pas une vraie erreur, juste pas de plan
-      if (e.toString().contains('404') || e.toString().contains('non trouvée')) {
+      if (e.toString().contains('404') || e.toString().contains('non trouvée') || e.toString().contains('No meal plans')) {
         _currentPlan = null;
         _error = null;
+        _log('No meal plans found (404)');
       } else {
+        _logError('loadCurrentWeekPlan: $e');
         _error = e.toString();
       }
       _isLoading = false;
@@ -64,6 +90,63 @@ class PlannerProvider with ChangeNotifier {
 
   // Supprimer le plan
   Future<bool> deleteMealPlan() async {
+    if (_currentPlan == null) {
+      _log('No plan to delete');
+      return false;
+    }
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _log('Deleting meal plan #${_currentPlan!.id}...');
+      await _mealPlannerService.deleteMealPlan(_currentPlan!.id);
+      _log('Meal plan deleted successfully');
+      _currentPlan = null;
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _logError('deleteMealPlan: $e');
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Ajouter une recette au plan existant
+  Future<bool> addRecipeToPlan(Map<String, dynamic> recipeData) async {
+    if (_currentPlan == null) {
+      _logError('addRecipeToPlan: No current plan');
+      _error = 'Aucun plan actif. Créez d\'abord un plan de repas.';
+      notifyListeners();
+      return false;
+    }
+
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      _log('Adding recipe to plan #${_currentPlan!.id}: ${recipeData['recipeName']}');
+      _currentPlan = await _mealPlannerService.addRecipeToPlan(_currentPlan!.id, recipeData);
+      _log('Recipe added successfully');
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _logError('addRecipeToPlan: $e');
+      _error = e.toString();
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // Supprimer un repas du plan
+  Future<bool> removeMealFromPlan(int mealId) async {
     if (_currentPlan == null) return false;
 
     _isLoading = true;
@@ -71,8 +154,10 @@ class PlannerProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      await _mealPlannerService.deleteMealPlan(_currentPlan!.id);
-      _currentPlan = null;
+      final updatedPlan = await _mealPlannerService.removeMealFromPlan(_currentPlan!.id, mealId);
+      if (updatedPlan != null) {
+        _currentPlan = updatedPlan;
+      }
       _isLoading = false;
       notifyListeners();
       return true;

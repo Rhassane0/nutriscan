@@ -60,7 +60,13 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
           ),
         ),
       ),
-      floatingActionButton: _buildFab(context, isDark),
+      // FAB n'apparaît que s'il y a déjà un plan
+      floatingActionButton: Consumer<PlannerProvider>(
+        builder: (context, provider, _) {
+          if (provider.currentPlan == null) return const SizedBox.shrink();
+          return _buildFab(context, isDark);
+        },
+      ),
     );
   }
 
@@ -406,11 +412,17 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(dialogContext);
+              // Sauvegarder les traductions AVANT le pop et l'await (utiliser trStatic pour éviter l'erreur Provider)
+              final successMsg = context.trStatic('meal_deleted');
+              final errorMsg = context.trStatic('error');
+              final scaffoldMessenger = ScaffoldMessenger.of(context);
               final provider = context.read<PlannerProvider>();
+
+              Navigator.pop(dialogContext);
               final success = await provider.deleteMealPlan();
+
               if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                scaffoldMessenger.showSnackBar(
                   SnackBar(
                     content: Row(
                       children: [
@@ -419,7 +431,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
                           color: Colors.white,
                         ),
                         const SizedBox(width: 8),
-                        Text(success ? context.tr('meal_deleted') : context.tr('error')),
+                        Text(success ? successMsg : errorMsg),
                       ],
                     ),
                     backgroundColor: success ? AppTheme.successGreen : AppTheme.errorRed,
@@ -599,26 +611,56 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
 
   Widget _buildMealItemTile(MealItem mealItem, bool isDark) {
     final mealTypeColor = _getMealTypeColor(mealItem.mealType);
+    final hasImage = mealItem.recipeImage != null && mealItem.recipeImage!.isNotEmpty;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          // Image ou icône
+          // Image de recette ou icône par défaut
           Container(
-            width: 56,
-            height: 56,
+            width: 60,
+            height: 60,
             decoration: BoxDecoration(
-              color: mealTypeColor.withOpacity(isDark ? 0.2 : 0.1),
+              color: hasImage ? null : mealTypeColor.withOpacity(isDark ? 0.2 : 0.1),
               borderRadius: BorderRadius.circular(14),
+              boxShadow: hasImage ? [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ] : null,
             ),
-            child: Center(
-              child: Icon(
-                _getMealTypeIcon(mealItem.mealType),
-                color: mealTypeColor,
-                size: 28,
-              ),
-            ),
+            clipBehavior: Clip.antiAlias,
+            child: hasImage
+                ? Image.network(
+                    mealItem.recipeImage!,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Center(
+                      child: Icon(
+                        _getMealTypeIcon(mealItem.mealType),
+                        color: mealTypeColor,
+                        size: 28,
+                      ),
+                    ),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(mealTypeColor),
+                        ),
+                      );
+                    },
+                  )
+                : Center(
+                    child: Icon(
+                      _getMealTypeIcon(mealItem.mealType),
+                      color: mealTypeColor,
+                      size: 28,
+                    ),
+                  ),
           ),
           const SizedBox(width: 14),
 
@@ -669,25 +711,185 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
             ),
           ),
 
-          // Bouton ajouter aux repas consommés
-          GestureDetector(
-            onTap: () => _showAddToConsumedDialog(context, mealItem, isDark),
-            child: Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryGreen.withOpacity(isDark ? 0.2 : 0.1),
-                borderRadius: BorderRadius.circular(12),
+          // Boutons d'action
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Bouton ajouter aux repas consommés
+              GestureDetector(
+                onTap: () => _showAddToConsumedDialog(context, mealItem, isDark),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGreen.withOpacity(isDark ? 0.2 : 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.add_circle_outline,
+                    color: AppTheme.primaryGreen,
+                    size: 22,
+                  ),
+                ),
               ),
-              child: const Icon(
-                Icons.add_circle_outline,
-                color: AppTheme.primaryGreen,
-                size: 24,
+              const SizedBox(width: 8),
+              // Menu contextuel (supprimer, etc.)
+              GestureDetector(
+                onTap: () => _showMealOptionsMenu(context, mealItem, isDark),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkSurfaceLight : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.more_vert,
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
+                    size: 22,
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  void _showMealOptionsMenu(BuildContext context, MealItem mealItem, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurface : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkBorder : Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              mealItem.recipeName,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 24),
+
+            // Option: Marquer comme consommé
+            _buildMenuOption(
+              icon: Icons.check_circle,
+              color: AppTheme.successGreen,
+              title: 'Marquer comme consommé',
+              onTap: () {
+                Navigator.pop(context);
+                _showAddToConsumedDialog(context, mealItem, isDark);
+              },
+              isDark: isDark,
+            ),
+            const SizedBox(height: 12),
+
+            // Option: Supprimer du plan
+            if (mealItem.id != null)
+              _buildMenuOption(
+                icon: Icons.delete_outline,
+                color: AppTheme.errorRed,
+                title: 'Supprimer du plan',
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _deleteMealFromPlan(mealItem);
+                },
+                isDark: isDark,
+              ),
+
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuOption({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(isDark ? 0.15 : 0.1),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(width: 16),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.chevron_right, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _deleteMealFromPlan(MealItem mealItem) async {
+    if (mealItem.id == null) return;
+
+    final provider = context.read<PlannerProvider>();
+    final success = await provider.removeMealFromPlan(mealItem.id!);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                success ? Icons.check_circle : Icons.error_outline,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  success
+                      ? '${mealItem.recipeName} supprimé du plan'
+                      : 'Erreur lors de la suppression',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: success ? AppTheme.successGreen : AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
   }
 
   void _showAddToConsumedDialog(BuildContext context, MealItem mealItem, bool isDark) {
@@ -1000,33 +1202,45 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
 
     Navigator.pop(context); // Fermer le bottom sheet
 
-    // Estimer les macros basées sur les calories (ratios approximatifs)
-    // Ratio standard équilibré: ~20% protéines, ~50% glucides, ~30% lipides
-    final totalCalories = mealItem.calories;
-    final estimatedProtein = (totalCalories * 0.20) / 4; // 4 cal/g protéine
-    final estimatedCarbs = (totalCalories * 0.50) / 4;   // 4 cal/g glucides
-    final estimatedFat = (totalCalories * 0.30) / 9;     // 9 cal/g lipides
+    // Debug log
+    debugPrint('🍽️ Adding meal to consumed: ${mealItem.recipeName}');
+    debugPrint('📅 Date: ${DateFormatter.formatForApi(date)}, Type: ${mealItem.mealType}');
 
-    // Construire les données du repas
+    // Utiliser les macros du repas planifié si disponibles, sinon estimer
+    final totalCalories = mealItem.calories;
+    final protein = mealItem.protein ?? (totalCalories * 0.20) / 4;
+    final carbs = mealItem.carbs ?? (totalCalories * 0.50) / 4;
+    final fat = mealItem.fat ?? (totalCalories * 0.30) / 9;
+
+    // Construire les données du repas (sans 'time' pour éviter les erreurs de parsing)
     final mealData = {
       'date': DateFormatter.formatForApi(date),
-      'time': '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:00',
       'mealType': mealItem.mealType,
       'source': 'MEAL_PLAN',
       'items': [
         {
           'foodName': mealItem.recipeName,
-          'quantity': mealItem.servings * 100.0, // Estimation de 100g par portion
+          'apiSource': 'EDAMAM',
+          'quantity': mealItem.servings * 100.0,
           'servingUnit': 'g',
           'calories': totalCalories,
-          'protein': estimatedProtein,
-          'carbs': estimatedCarbs,
-          'fat': estimatedFat,
+          'protein': protein,
+          'carbs': carbs,
+          'fat': fat,
         }
       ],
     };
 
+    debugPrint('📤 Meal data: $mealData');
+
     final success = await mealProvider.createMeal(mealData);
+    final errorMsg = mealProvider.error;
+
+    if (success) {
+      debugPrint('✅ Meal added to consumed successfully');
+    } else {
+      debugPrint('❌ Failed to add meal to consumed: $errorMsg');
+    }
 
     scaffoldMessenger.showSnackBar(
       SnackBar(
@@ -1041,7 +1255,7 @@ class _MealPlannerScreenState extends State<MealPlannerScreen> {
               child: Text(
                 success
                     ? 'Repas ajouté à votre journal du ${DateFormatter.formatForDisplay(date)}'
-                    : 'Erreur lors de l\'ajout du repas',
+                    : 'Erreur: ${errorMsg ?? "Échec de l\'ajout"}',
               ),
             ),
           ],

@@ -17,7 +17,7 @@ import java.util.List;
 @Slf4j
 public class EdamamRecipeService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final FallbackRecipeService fallbackRecipeService;
 
@@ -30,9 +30,11 @@ public class EdamamRecipeService {
     @Value("${edamam.recipe.base-url}")
     private String baseUrl;
 
-    public EdamamRecipeService(FallbackRecipeService fallbackRecipeService) {
+    public EdamamRecipeService(RestTemplate restTemplate, FallbackRecipeService fallbackRecipeService) {
+        this.restTemplate = restTemplate;
         this.fallbackRecipeService = fallbackRecipeService;
     }
+
 
     /**
      * Search recipes based on query and filters
@@ -92,19 +94,19 @@ public class EdamamRecipeService {
                     log.info("🍽️ Found {} recipes from Edamam API for '{}'", recipes.size(), query);
                     return recipes;
                 } else {
-                    log.warn("⚠️ Edamam API returned 0 recipes for '{}', using fallback", query);
+                    log.warn("⚠️ Edamam API returned 0 recipes for '{}', using Gemini AI fallback", query);
                     return fallbackRecipeService.searchRecipes(query, mealType, calories, maxResults);
                 }
             } else {
-                log.error("❌ Edamam API returned status {}, using fallback", response.getStatusCode());
+                log.error("❌ Edamam API returned status {}, using Gemini AI fallback", response.getStatusCode());
                 return fallbackRecipeService.searchRecipes(query, mealType, calories, maxResults);
             }
 
         } catch (Exception e) {
-            log.error("❌ Error calling Edamam API: {} - Using fallback recipes", e.getMessage());
+            log.error("❌ Error calling Edamam API: {}", e.getMessage());
             log.error("💡 Check if your Edamam API keys are valid: app_id={}, app_key={}***",
                 appId, appKey != null && appKey.length() > 5 ? appKey.substring(0, 5) : "null");
-            log.debug("Full stack trace:", e);
+            log.info("🔄 Falling back to Gemini AI for recipe generation");
             return fallbackRecipeService.searchRecipes(query, mealType, calories, maxResults);
         }
     }
@@ -197,12 +199,41 @@ public class EdamamRecipeService {
         JsonNode nutrients = recipe.get("totalNutrients");
 
         return RecipeResponse.NutritionInfo.builder()
+                // Macronutriments
                 .calories(extractNutrient(nutrients, "ENERC_KCAL"))
                 .protein(extractNutrient(nutrients, "PROCNT"))
                 .fat(extractNutrient(nutrients, "FAT"))
                 .carbs(extractNutrient(nutrients, "CHOCDF"))
                 .fiber(extractNutrient(nutrients, "FIBTG"))
                 .sugar(extractNutrient(nutrients, "SUGAR"))
+                .saturatedFat(extractNutrient(nutrients, "FASAT"))
+                .monounsaturatedFat(extractNutrient(nutrients, "FAMS"))
+                .polyunsaturatedFat(extractNutrient(nutrients, "FAPU"))
+                .transFat(extractNutrient(nutrients, "FATRN"))
+                .cholesterol(extractNutrient(nutrients, "CHOLE"))
+                .sodium(extractNutrient(nutrients, "NA"))
+                // Vitamines
+                .vitaminA(extractNutrient(nutrients, "VITA_RAE"))
+                .vitaminC(extractNutrient(nutrients, "VITC"))
+                .vitaminD(extractNutrient(nutrients, "VITD"))
+                .vitaminE(extractNutrient(nutrients, "TOCPHA"))
+                .vitaminK(extractNutrient(nutrients, "VITK1"))
+                .vitaminB6(extractNutrient(nutrients, "VITB6A"))
+                .vitaminB12(extractNutrient(nutrients, "VITB12"))
+                .folate(extractNutrient(nutrients, "FOLDFE"))
+                .niacin(extractNutrient(nutrients, "NIA"))
+                .riboflavin(extractNutrient(nutrients, "RIBF"))
+                .thiamin(extractNutrient(nutrients, "THIA"))
+                // Minéraux
+                .calcium(extractNutrient(nutrients, "CA"))
+                .iron(extractNutrient(nutrients, "FE"))
+                .magnesium(extractNutrient(nutrients, "MG"))
+                .phosphorus(extractNutrient(nutrients, "P"))
+                .potassium(extractNutrient(nutrients, "K"))
+                .zinc(extractNutrient(nutrients, "ZN"))
+                .selenium(extractNutrient(nutrients, "SE"))
+                // Autres
+                .water(extractNutrient(nutrients, "WATER"))
                 .build();
     }
 

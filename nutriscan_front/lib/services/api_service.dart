@@ -12,20 +12,32 @@ class ApiService {
   static const String baseUrl = 'http://localhost:8082/api';
   String? _token;
 
-  // Désactivé par défaut pour ne pas polluer les logs en production/developpement normal
-  static const bool _debugMode = false;
+  // Mode debug activé pour diagnostic - à désactiver en production
+  static const bool _debugMode = true;
 
   // Log uniquement en mode debug
   void _log(String message) {
     if (_debugMode && kDebugMode) {
-      print(message);
+      print('🔍 [API] $message');
     }
   }
 
   // Log des erreurs (toujours affichées)
   void _logError(String message) {
     if (kDebugMode) {
-      print('❌ $message');
+      print('❌ [API ERROR] $message');
+    }
+  }
+
+  // Log de debug détaillé
+  void _logDebug(String endpoint, String method, {dynamic data, int? statusCode, String? response}) {
+    if (_debugMode && kDebugMode) {
+      print('═══════════════════════════════════════════');
+      print('🌐 $method $endpoint');
+      if (data != null) print('📤 Data: $data');
+      if (statusCode != null) print('📥 Status: $statusCode');
+      if (response != null && response.length < 500) print('📦 Response: $response');
+      print('═══════════════════════════════════════════');
     }
   }
 
@@ -83,17 +95,25 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> data, {Duration? timeout}) async {
     try {
-      _log('🔵 POST: $endpoint');
+      _logDebug(endpoint, 'POST', data: data);
+
+      // Timeout plus long pour les opérations d'IA (génération de plan)
+      final requestTimeout = timeout ?? (endpoint.contains('generate')
+          ? const Duration(minutes: 3)
+          : const Duration(seconds: 30));
 
       final response = await http.post(
         Uri.parse('$baseUrl$endpoint'),
         headers: headers,
         body: json.encode(data),
-      );
+      ).timeout(requestTimeout, onTimeout: () {
+        _logError('POST $endpoint: TIMEOUT après ${requestTimeout.inSeconds}s');
+        throw Exception('La requête a expiré. La génération du plan prend trop de temps.');
+      });
 
-      _log('📥 Status: ${response.statusCode}');
+      _logDebug(endpoint, 'POST RESPONSE', statusCode: response.statusCode, response: response.body);
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         return json.decode(response.body);
@@ -102,10 +122,23 @@ class ApiService {
         throw Exception('Non autorisé');
       } else if (response.statusCode == 400) {
         final errorBody = json.decode(response.body);
+        _logError('POST $endpoint 400: ${response.body}');
         throw Exception(errorBody['message'] ?? 'Requête invalide');
       } else if (response.statusCode == 403) {
+        _logError('POST $endpoint 403: CORS ou accès refusé');
         throw Exception('Accès refusé - Vérifiez CORS côté backend');
+      } else if (response.statusCode == 500) {
+        _logError('POST $endpoint 500 - Server error: ${response.body}');
+        String errorMsg = 'Erreur serveur: ${response.statusCode}';
+        try {
+          final errorBody = json.decode(response.body);
+          if (errorBody['message'] != null) {
+            errorMsg = errorBody['message'];
+          }
+        } catch (_) {}
+        throw Exception(errorMsg);
       } else {
+        _logError('POST $endpoint ${response.statusCode}: ${response.body}');
         throw Exception('Erreur serveur: ${response.statusCode}');
       }
     } on http.ClientException catch (e) {

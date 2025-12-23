@@ -99,5 +99,31 @@ public class MealPlannerController {
         mealPlanService.deleteMealPlan(currentUser.getId(), id);
         return ResponseEntity.noContent().build();
     }
+
+    /**
+     * Add a recipe to an existing meal plan
+     */
+    @PostMapping("/{id}/meals")
+    public ResponseEntity<MealPlanResponse> addRecipeToPlan(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long id,
+            @RequestBody java.util.Map<String, Object> recipeData
+    ) {
+        MealPlanResponse response = mealPlanService.addRecipeToPlan(currentUser.getId(), id, recipeData);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Remove a meal from a plan
+     */
+    @DeleteMapping("/{planId}/meals/{mealId}")
+    public ResponseEntity<MealPlanResponse> removeMealFromPlan(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @PathVariable Long planId,
+            @PathVariable Long mealId
+    ) {
+        MealPlanResponse response = mealPlanService.removeMealFromPlan(currentUser.getId(), planId, mealId);
+        return ResponseEntity.ok(response);
+    }
 }
 

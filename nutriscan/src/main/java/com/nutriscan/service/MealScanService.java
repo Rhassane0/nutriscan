@@ -37,7 +37,7 @@ public class MealScanService {
     @Value("${gemini.api.key:}")
     private String geminiApiKey;
 
-    @Value("${gemini.model:gemini-2.0-flash}")
+    @Value("${gemini.model:gemma-3-27b-it}")
     private String geminiModel;
 
     private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:math' as math;
 import '../../config/theme.dart';
 import '../../models/weight_entry.dart';
 import '../../providers/weight_tracking_provider.dart';
 import '../../providers/theme_provider.dart';
+import '../../services/user_service.dart';
+import '../../services/goals_service.dart';
 import '../../widgets/loading_indicator.dart';
-import '../../widgets/weight_progress_analysis.dart';
 
 class WeightTrackingScreen extends StatefulWidget {
   const WeightTrackingScreen({super.key});
@@ -15,166 +17,83 @@ class WeightTrackingScreen extends StatefulWidget {
   State<WeightTrackingScreen> createState() => _WeightTrackingScreenState();
 }
 
-class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
+class _WeightTrackingScreenState extends State<WeightTrackingScreen> with TickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late AnimationController _rotateController;
+
+  double? _initialWeight;
+  double? _targetWeight;
+  String? _goalType;
+  bool _isLoadingProfile = true;
+
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+    _rotateController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    )..repeat();
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<WeightTrackingProvider>().loadEntries();
+      _loadData();
     });
   }
 
-  Future<void> _addEntry() async {
-    final weightController = TextEditingController();
-    final notesController = TextEditingController();
-    DateTime selectedDate = DateTime.now();
-    final themeProvider = context.read<ThemeProvider>();
-    final isDark = themeProvider.isDarkMode;
+  Future<void> _loadData() async {
+    final provider = context.read<WeightTrackingProvider>();
+    await provider.loadEntries();
 
-    await showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-          title: Text(
-            'Ajouter une entrée',
-            style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: weightController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark),
-                  decoration: InputDecoration(
-                    labelText: 'Poids (kg)',
-                    labelStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium),
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                    ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderSide: BorderSide(color: AppTheme.primaryGreen, width: 2),
-                    ),
-                    prefixIcon: Icon(Icons.monitor_weight, color: isDark ? AppTheme.primaryGreenLight : AppTheme.primaryGreen),
-                    filled: true,
-                    fillColor: isDark ? AppTheme.darkSurfaceLight : Colors.grey[50],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ListTile(
-                  title: Text('Date', style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark)),
-                  subtitle: Text(
-                    '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
-                    style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium),
-                  ),
-                  trailing: Icon(Icons.calendar_today, color: isDark ? AppTheme.primaryGreenLight : AppTheme.primaryGreen),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: selectedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                      builder: (context, child) {
-                        return Theme(
-                          data: Theme.of(context).copyWith(
-                            colorScheme: isDark
-                                ? const ColorScheme.dark(
-                                    primary: AppTheme.primaryGreen,
-                                    surface: AppTheme.darkSurface,
-                                  )
-                                : const ColorScheme.light(
-                                    primary: AppTheme.primaryGreen,
-                                  ),
-                          ),
-                          child: child!,
-                        );
-                      },
-                    );
-                    if (picked != null) {
-                      setDialogState(() {
-                        selectedDate = picked;
-                      });
-                    }
-                  },
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: notesController,
-                  maxLines: 3,
-                  style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark),
-                  decoration: InputDecoration(
-                    labelText: 'Notes (optionnel)',
-                    labelStyle: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium),
-                    border: OutlineInputBorder(
-                      borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                    ),
-                    focusedBorder: const OutlineInputBorder(
-                      borderSide: BorderSide(color: AppTheme.primaryGreen, width: 2),
-                    ),
-                    alignLabelWithHint: true,
-                    filled: true,
-                    fillColor: isDark ? AppTheme.darkSurfaceLight : Colors.grey[50],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Annuler', style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryGreen,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () async {
-                if (weightController.text.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Veuillez entrer un poids')),
-                  );
-                  return;
-                }
+    // Charger les infos du profil
+    try {
+      final userService = context.read<UserService>();
+      final profile = await userService.getProfile();
 
-                try {
-                  final weight = double.parse(weightController.text);
-                  Navigator.pop(context);
+      final goalsService = context.read<GoalsService>();
+      Map<String, dynamic>? goals;
+      try {
+        goals = await goalsService.getGoals();
+      } catch (_) {}
 
-                  final provider = context.read<WeightTrackingProvider>();
-                  final success = await provider.addEntry(
-                    weight,
-                    selectedDate,
-                    notes: notesController.text,
-                  );
+      if (mounted) {
+        setState(() {
+          _initialWeight = (profile['initialWeightKg'] as num?)?.toDouble();
+          _goalType = goals?['goalType'] as String? ?? profile['goalType'] as String?;
 
-                  if (!success && mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Erreur: ${provider.error}')),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Erreur: ${e.toString()}')),
-                    );
-                  }
-                }
-              },
-              child: const Text('Ajouter'),
-            ),
-          ],
-        ),
-      ),
-    );
+          // Calculer un poids cible basé sur l'objectif
+          if (_initialWeight != null && _goalType != null) {
+            switch (_goalType) {
+              case 'LOSE_WEIGHT':
+                _targetWeight = _initialWeight! - 5; // Objectif: perdre 5kg
+                break;
+              case 'GAIN_WEIGHT':
+                _targetWeight = _initialWeight! + 5; // Objectif: prendre 5kg
+                break;
+              default:
+                _targetWeight = _initialWeight; // Maintenir
+            }
+          }
+          _isLoadingProfile = false;
+        });
+
+        // Ajouter automatiquement le poids initial si pas d'entrées
+        if (provider.entries.isEmpty && _initialWeight != null) {
+          await provider.addEntry(_initialWeight!, DateTime.now(), notes: 'Poids initial');
+        }
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingProfile = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _rotateController.dispose();
+    super.dispose();
   }
 
   @override
@@ -183,121 +102,450 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Suivi du Poids'),
-        backgroundColor: AppTheme.primaryGreen,
-        foregroundColor: Colors.white,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: isDark ? AppTheme.darkGradient : null,
-          color: isDark ? null : AppTheme.backgroundLight,
-        ),
-        child: Consumer<WeightTrackingProvider>(
-          builder: (context, provider, child) {
-            if (provider.isLoading) {
-              return const LoadingIndicator(message: 'Chargement...');
-            }
+      backgroundColor: isDark ? const Color(0xFF0A0E21) : AppTheme.backgroundLight,
+      body: Stack(
+        children: [
+          if (isDark) _buildAnimatedBackground(),
+          SafeArea(
+            child: Consumer<WeightTrackingProvider>(
+              builder: (context, provider, child) {
+                if (provider.isLoading || _isLoadingProfile) {
+                  return const LoadingIndicator(message: 'Chargement...');
+                }
 
-            if (provider.error != null) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                return Column(
                   children: [
-                    Icon(Icons.error_outline, size: 80, color: Colors.red[300]),
-                    const SizedBox(height: 16),
-                    Text(
-                      provider.error!,
-                      style: TextStyle(fontSize: 16, color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600]),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => provider.loadEntries(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryGreen,
-                        foregroundColor: Colors.white,
+                    _buildHeader(isDark),
+                    Expanded(
+                      child: RefreshIndicator(
+                        onRefresh: () => provider.loadEntries(),
+                        color: AppTheme.primaryGreen,
+                        child: SingleChildScrollView(
+                          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              _buildMainStatsCard(provider, isDark),
+                              const SizedBox(height: 20),
+                              if (provider.entries.length >= 2)
+                                _buildProgressAnalysis(provider, isDark),
+                              const SizedBox(height: 20),
+                              if (provider.entries.length >= 2)
+                                _buildChart(provider.entries, isDark),
+                              const SizedBox(height: 20),
+                              _buildHistorySection(provider, isDark),
+                              const SizedBox(height: 100),
+                            ],
+                          ),
+                        ),
                       ),
-                      child: const Text('Réessayer'),
                     ),
                   ],
-                ),
-              );
-            }
-
-            if (provider.entries.isEmpty) {
-              return _buildEmptyState(isDark);
-            }
-
-            return RefreshIndicator(
-              onRefresh: () => provider.loadEntries(),
-              color: AppTheme.primaryGreen,
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                child: Column(
-                  children: [
-                    // Analyse de progression
-                    const SizedBox(height: 16),
-                    WeightProgressAnalysis(
-                      entries: provider.entries,
-                      isDark: isDark,
-                    ),
-                    const SizedBox(height: 16),
-                    if (provider.entries.length >= 2) _buildChart(provider.entries, isDark),
-                    const SizedBox(height: 16),
-                    _buildStats(provider.entries, isDark),
-                    const SizedBox(height: 16),
-                    _buildEntriesList(provider.entries, isDark),
-                    const SizedBox(height: 80),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        heroTag: 'weight_fab',
-        onPressed: _addEntry,
-        backgroundColor: AppTheme.primaryGreen,
-        child: const Icon(Icons.add, color: Colors.white),
+                );
+              },
+            ),
+          ),
+          Positioned(
+            bottom: 20,
+            right: 20,
+            child: _buildAddButton(isDark),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildEmptyState(bool isDark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildAnimatedBackground() {
+    return AnimatedBuilder(
+      animation: _rotateController,
+      builder: (context, child) {
+        return Stack(
+          children: [
+            Positioned(
+              top: -100,
+              right: -100,
+              child: Transform.rotate(
+                angle: _rotateController.value * 2 * math.pi,
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppTheme.primaryGreen.withOpacity(0.12),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 200,
+              left: -50,
+              child: Transform.rotate(
+                angle: -_rotateController.value * 2 * math.pi,
+                child: Container(
+                  width: 200,
+                  height: 200,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        AppTheme.accentBlue.withOpacity(0.1),
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Row(
         children: [
-          Icon(
-            Icons.monitor_weight_outlined,
-            size: 100,
-            color: isDark ? AppTheme.darkTextTertiary : Colors.grey[300],
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Aucune donnée de poids',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.darkTextPrimary : Colors.grey[600],
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? Colors.white.withOpacity(0.1) : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[200]!,
+                ),
+              ),
+              child: Icon(
+                Icons.arrow_back_ios_new,
+                size: 20,
+                color: isDark ? Colors.white : AppTheme.textDark,
+              ),
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Commencez à suivre votre poids',
-            style: TextStyle(fontSize: 16, color: isDark ? AppTheme.darkTextSecondary : Colors.grey[500]),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Suivi du',
+                  style: TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppTheme.textDark,
+                  ),
+                ),
+                ShaderMask(
+                  shaderCallback: (bounds) => LinearGradient(
+                    colors: [AppTheme.primaryGreen, AppTheme.accentTeal],
+                  ).createShader(bounds),
+                  child: const Text(
+                    'Poids',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: _addEntry,
-            icon: const Icon(Icons.add),
-            label: const Text('Ajouter une entrée'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryGreen,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMainStatsCard(WeightTrackingProvider provider, bool isDark) {
+    final currentWeight = provider.entries.isNotEmpty ? provider.entries.first.weight : _initialWeight ?? 0;
+    final startWeight = provider.entries.isNotEmpty
+        ? provider.entries.last.weight
+        : _initialWeight ?? currentWeight;
+    final difference = currentWeight - startWeight;
+
+    return AnimatedBuilder(
+      animation: _pulseController,
+      builder: (context, child) {
+        final scale = 1.0 + (_pulseController.value * 0.015);
+
+        return Transform.scale(
+          scale: scale,
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [const Color(0xFF1A1F38), const Color(0xFF0D1025)]
+                    : [Colors.white, Colors.grey[50]!],
+              ),
+              borderRadius: BorderRadius.circular(28),
+              border: Border.all(
+                color: isDark
+                    ? AppTheme.primaryGreen.withOpacity(0.3)
+                    : Colors.grey[200]!,
+                width: isDark ? 1.5 : 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? AppTheme.primaryGreen.withOpacity(0.15)
+                      : Colors.black.withOpacity(0.08),
+                  blurRadius: 30,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                // Poids actuel avec cercle de progression
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (_targetWeight != null && _initialWeight != null)
+                      SizedBox(
+                        width: 160,
+                        height: 160,
+                        child: CircularProgressIndicator(
+                          value: _calculateProgress(currentWeight),
+                          strokeWidth: 8,
+                          backgroundColor: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                          valueColor: AlwaysStoppedAnimation<Color>(_getProgressColor()),
+                        ),
+                      ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.monitor_weight,
+                          size: 32,
+                          color: _getProgressColor(),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          currentWeight.toStringAsFixed(1),
+                          style: TextStyle(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? Colors.white : AppTheme.textDark,
+                            letterSpacing: -1,
+                          ),
+                        ),
+                        Text(
+                          'KG',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white60 : Colors.grey[500],
+                            letterSpacing: 2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Statistiques
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildStatItem(
+                        'Départ',
+                        '${startWeight.toStringAsFixed(1)} kg',
+                        Icons.flag_outlined,
+                        AppTheme.accentBlue,
+                        isDark,
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 50,
+                      color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                    ),
+                    Expanded(
+                      child: _buildStatItem(
+                        'Évolution',
+                        '${difference >= 0 ? "+" : ""}${difference.toStringAsFixed(1)} kg',
+                        difference >= 0 ? Icons.trending_up : Icons.trending_down,
+                        difference == 0
+                            ? AppTheme.accentBlue
+                            : (_goalType == 'LOSE_WEIGHT'
+                                ? (difference < 0 ? AppTheme.successGreen : AppTheme.errorRed)
+                                : (difference > 0 ? AppTheme.successGreen : AppTheme.errorRed)),
+                        isDark,
+                      ),
+                    ),
+                    if (_targetWeight != null) ...[
+                      Container(
+                        width: 1,
+                        height: 50,
+                        color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[200],
+                      ),
+                      Expanded(
+                        child: _buildStatItem(
+                          'Objectif',
+                          '${_targetWeight!.toStringAsFixed(1)} kg',
+                          Icons.track_changes,
+                          AppTheme.accentPurple,
+                          isDark,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon, Color color, bool isDark) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : AppTheme.textDark,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: isDark ? Colors.white54 : Colors.grey[500],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildProgressAnalysis(WeightTrackingProvider provider, bool isDark) {
+    final currentWeight = provider.entries.first.weight;
+    final startWeight = provider.entries.last.weight;
+    final difference = currentWeight - startWeight;
+
+    String title;
+    String message;
+    Color color;
+    IconData icon;
+
+    if (_goalType == 'LOSE_WEIGHT') {
+      if (difference < 0) {
+        title = '🎉 Excellent progrès !';
+        message = 'Vous avez perdu ${(-difference).toStringAsFixed(1)} kg. Continuez comme ça !';
+        color = AppTheme.successGreen;
+        icon = Icons.emoji_events;
+      } else if (difference == 0) {
+        title = '⚖️ Stabilité';
+        message = 'Votre poids est stable. Augmentez légèrement votre déficit calorique.';
+        color = AppTheme.accentBlue;
+        icon = Icons.balance;
+      } else {
+        title = '💪 Restez motivé !';
+        message = 'Vous avez pris ${difference.toStringAsFixed(1)} kg. Revoyez votre alimentation.';
+        color = AppTheme.secondaryOrange;
+        icon = Icons.fitness_center;
+      }
+    } else if (_goalType == 'GAIN_WEIGHT') {
+      if (difference > 0) {
+        title = '🎉 Excellent progrès !';
+        message = 'Vous avez pris ${difference.toStringAsFixed(1)} kg. Continuez !';
+        color = AppTheme.successGreen;
+        icon = Icons.emoji_events;
+      } else if (difference == 0) {
+        title = '⚖️ Stabilité';
+        message = 'Votre poids est stable. Augmentez votre apport calorique.';
+        color = AppTheme.accentBlue;
+        icon = Icons.balance;
+      } else {
+        title = '💪 Restez motivé !';
+        message = 'Vous avez perdu ${(-difference).toStringAsFixed(1)} kg. Mangez plus !';
+        color = AppTheme.secondaryOrange;
+        icon = Icons.fitness_center;
+      }
+    } else {
+      title = '⚖️ Maintien du poids';
+      message = difference.abs() < 1
+          ? 'Parfait ! Votre poids est stable.'
+          : 'Variation de ${difference.abs().toStringAsFixed(1)} kg. Surveillez votre alimentation.';
+      color = difference.abs() < 1 ? AppTheme.successGreen : AppTheme.secondaryOrange;
+      icon = Icons.balance;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1F38) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.1),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: color, size: 28),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppTheme.textDark,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? Colors.white60 : Colors.grey[600],
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -318,30 +566,37 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     final range = maxWeight - minWeight;
 
     return Container(
-      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: isDark ? null : [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: isDark ? Border.all(color: AppTheme.darkBorder) : null,
+        color: isDark ? const Color(0xFF1A1F38) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[200]!,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Évolution du poids',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppTheme.accentBlue.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.show_chart, color: AppTheme.accentBlue, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Évolution',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppTheme.textDark,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 20),
           SizedBox(
@@ -353,7 +608,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                   drawVerticalLine: false,
                   getDrawingHorizontalLine: (value) {
                     return FlLine(
-                      color: isDark ? AppTheme.darkBorder : Colors.grey[300]!,
+                      color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[200]!,
                       strokeWidth: 1,
                     );
                   },
@@ -365,10 +620,10 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                       reservedSize: 40,
                       getTitlesWidget: (value, meta) {
                         return Text(
-                          value.toStringAsFixed(1),
+                          value.toStringAsFixed(0),
                           style: TextStyle(
                             fontSize: 10,
-                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
+                            color: isDark ? Colors.white54 : Colors.grey[500],
                           ),
                         );
                       },
@@ -384,7 +639,7 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                           '${date.day}/${date.month}',
                           style: TextStyle(
                             fontSize: 10,
-                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
+                            color: isDark ? Colors.white54 : Colors.grey[500],
                           ),
                         );
                       },
@@ -394,18 +649,37 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
                   topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 ),
                 borderData: FlBorderData(show: false),
-                minY: (minWeight - range * 0.1).clamp(0, double.infinity),
-                maxY: maxWeight + range * 0.1,
+                minY: range > 0 ? (minWeight - range * 0.1).clamp(0, double.infinity) : minWeight - 2,
+                maxY: range > 0 ? maxWeight + range * 0.1 : maxWeight + 2,
                 lineBarsData: [
                   LineChartBarData(
                     spots: spots,
                     isCurved: true,
-                    color: AppTheme.primaryGreen,
+                    gradient: LinearGradient(
+                      colors: [AppTheme.primaryGreen, AppTheme.accentTeal],
+                    ),
                     barWidth: 3,
-                    dotData: const FlDotData(show: true),
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        return FlDotCirclePainter(
+                          radius: 5,
+                          color: AppTheme.primaryGreen,
+                          strokeWidth: 2,
+                          strokeColor: Colors.white,
+                        );
+                      },
+                    ),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: AppTheme.primaryGreen.withValues(alpha: isDark ? 0.2 : 0.1),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          AppTheme.primaryGreen.withOpacity(isDark ? 0.3 : 0.2),
+                          AppTheme.primaryGreen.withOpacity(0),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -417,194 +691,391 @@ class _WeightTrackingScreenState extends State<WeightTrackingScreen> {
     );
   }
 
-  Widget _buildStats(List<WeightEntry> entries, bool isDark) {
-    if (entries.isEmpty) return const SizedBox.shrink();
-
-    final currentWeight = entries.first.weight;
-    final startWeight = entries.last.weight;
-    final difference = currentWeight - startWeight;
-    final minWeight = entries.map((e) => e.weight).reduce((a, b) => a < b ? a : b);
-    final maxWeight = entries.map((e) => e.weight).reduce((a, b) => a > b ? a : b);
-    final avgWeight = entries.map((e) => e.weight).reduce((a, b) => a + b) / entries.length;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: isDark ? null : [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: isDark ? Border.all(color: AppTheme.darkBorder) : null,
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatItem(
-                  'Actuel',
-                  '${currentWeight.toStringAsFixed(1)} kg',
-                  Icons.monitor_weight,
-                  AppTheme.primaryGreen,
-                  isDark,
-                ),
+  Widget _buildHistorySection(WeightTrackingProvider provider, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppTheme.accentPurple.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(12),
               ),
-              Expanded(
-                child: _buildStatItem(
-                  'Évolution',
-                  '${difference >= 0 ? "+" : ""}${difference.toStringAsFixed(1)} kg',
-                  difference >= 0 ? Icons.trending_up : Icons.trending_down,
-                  difference >= 0 ? AppTheme.errorRed : AppTheme.successGreen,
-                  isDark,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatItem(
-                  'Minimum',
-                  '${minWeight.toStringAsFixed(1)} kg',
-                  Icons.arrow_downward,
-                  AppTheme.accentBlue,
-                  isDark,
-                ),
-              ),
-              Expanded(
-                child: _buildStatItem(
-                  'Maximum',
-                  '${maxWeight.toStringAsFixed(1)} kg',
-                  Icons.arrow_upward,
-                  AppTheme.warningYellow,
-                  isDark,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _buildStatItem(
-            'Moyenne',
-            '${avgWeight.toStringAsFixed(1)} kg',
-            Icons.insights,
-            AppTheme.accentPurple,
-            isDark,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatItem(String label, String value, IconData icon, Color color, bool isDark) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: isDark ? 0.2 : 0.1),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: color,
+              child: const Icon(Icons.history, color: AppTheme.accentPurple, size: 20),
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600]),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEntriesList(List<WeightEntry> entries, bool isDark) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: isDark ? null : [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: isDark ? Border.all(color: AppTheme.darkBorder) : null,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(
+            const SizedBox(width: 12),
+            Text(
               'Historique',
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
+                fontWeight: FontWeight.w700,
+                color: isDark ? Colors.white : AppTheme.textDark,
               ),
             ),
-          ),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: entries.length,
-            separatorBuilder: (context, index) => Divider(
-              height: 1,
-              color: isDark ? AppTheme.darkDivider : Colors.grey[200],
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        if (provider.entries.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1A1F38) : Colors.white,
+              borderRadius: BorderRadius.circular(16),
             ),
-            itemBuilder: (context, index) {
-              final entry = entries[index];
-              return ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryGreen.withValues(alpha: isDark ? 0.2 : 0.1),
-                    borderRadius: BorderRadius.circular(12),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.scale, size: 48, color: isDark ? Colors.white38 : Colors.grey[300]),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Aucune entrée de poids',
+                    style: TextStyle(color: isDark ? Colors.white54 : Colors.grey[500]),
                   ),
-                  child: const Icon(Icons.monitor_weight, color: AppTheme.primaryGreen),
-                ),
-                title: Text(
+                ],
+              ),
+            ),
+          )
+        else
+          ...provider.entries.take(10).map((entry) => _buildHistoryItem(entry, isDark)),
+      ],
+    );
+  }
+
+  Widget _buildHistoryItem(WeightEntry entry, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1A1F38) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? Colors.white.withOpacity(0.1) : Colors.grey[200]!,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryGreen.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(Icons.monitor_weight, color: AppTheme.primaryGreen, size: 24),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   '${entry.weight.toStringAsFixed(1)} kg',
                   style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppTheme.textDark,
                   ),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${entry.date.day}/${entry.date.month}/${entry.date.year}',
-                      style: TextStyle(color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium),
-                    ),
-                    if (entry.notes != null && entry.notes!.isNotEmpty)
-                      Text(
-                        entry.notes!,
-                        style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextTertiary : Colors.grey[600]),
-                      ),
-                  ],
+                Text(
+                  '${entry.date.day}/${entry.date.month}/${entry.date.year}',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? Colors.white54 : Colors.grey[500],
+                  ),
                 ),
-              );
-            },
+                if (entry.notes != null && entry.notes!.isNotEmpty)
+                  Text(
+                    entry.notes!,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? Colors.white38 : Colors.grey[400],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildAddButton(bool isDark) {
+    return GestureDetector(
+      onTap: () => _showAddDialog(isDark),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: AppTheme.primaryGlowGradient,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryGreen.withOpacity(0.4),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.add, color: Colors.white, size: 28),
+      ),
+    );
+  }
+
+  void _showAddDialog(bool isDark) {
+    final weightController = TextEditingController();
+    final notesController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1A1F38) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white24 : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGlowGradient,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(Icons.add_chart, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Text(
+                      'Nouvelle entrée',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                        color: isDark ? Colors.white : AppTheme.textDark,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Poids
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[50],
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: TextField(
+                    controller: weightController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: TextStyle(
+                      color: isDark ? Colors.white : AppTheme.textDark,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Poids',
+                      labelStyle: TextStyle(color: isDark ? Colors.white54 : Colors.grey[500]),
+                      suffixText: 'kg',
+                      suffixStyle: const TextStyle(
+                        color: AppTheme.primaryGreen,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      prefixIcon: Container(
+                        margin: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryGreen.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.monitor_weight, color: AppTheme.primaryGreen, size: 20),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Date
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setModalState(() => selectedDate = picked);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[50],
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.accentBlue.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(Icons.calendar_today, color: AppTheme.accentBlue, size: 20),
+                        ),
+                        const SizedBox(width: 14),
+                        Text(
+                          '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: isDark ? Colors.white : AppTheme.textDark,
+                          ),
+                        ),
+                        const Spacer(),
+                        Icon(Icons.chevron_right, color: isDark ? Colors.white38 : Colors.grey[400]),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Notes
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey[50],
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: TextField(
+                    controller: notesController,
+                    style: TextStyle(color: isDark ? Colors.white : AppTheme.textDark),
+                    decoration: InputDecoration(
+                      labelText: 'Notes (optionnel)',
+                      labelStyle: TextStyle(color: isDark ? Colors.white54 : Colors.grey[500]),
+                      prefixIcon: Container(
+                        margin: const EdgeInsets.all(10),
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.accentPurple.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.note, color: AppTheme.accentPurple, size: 20),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Bouton
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      final weight = double.tryParse(weightController.text);
+                      if (weight == null || weight <= 0) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Veuillez entrer un poids valide')),
+                        );
+                        return;
+                      }
+
+                      final provider = context.read<WeightTrackingProvider>();
+                      final success = await provider.addEntry(
+                        weight,
+                        selectedDate,
+                        notes: notesController.text.isNotEmpty ? notesController.text : null,
+                      );
+
+                      if (mounted) {
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(success ? 'Poids enregistré !' : 'Erreur lors de l\'enregistrement'),
+                            backgroundColor: success ? AppTheme.successGreen : AppTheme.errorRed,
+                          ),
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryGreen,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.save),
+                        SizedBox(width: 8),
+                        Text(
+                          'Enregistrer',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  double _calculateProgress(double currentWeight) {
+    if (_initialWeight == null || _targetWeight == null) return 0;
+
+    final totalChange = (_targetWeight! - _initialWeight!).abs();
+    if (totalChange == 0) return 1.0;
+
+    final currentChange = (currentWeight - _initialWeight!).abs();
+
+    if (_goalType == 'LOSE_WEIGHT') {
+      return currentWeight <= _targetWeight!
+          ? 1.0
+          : ((_initialWeight! - currentWeight) / (_initialWeight! - _targetWeight!)).clamp(0.0, 1.0);
+    } else if (_goalType == 'GAIN_WEIGHT') {
+      return currentWeight >= _targetWeight!
+          ? 1.0
+          : ((currentWeight - _initialWeight!) / (_targetWeight! - _initialWeight!)).clamp(0.0, 1.0);
+    }
+
+    return 1.0;
+  }
+
+  Color _getProgressColor() {
+    if (_goalType == 'LOSE_WEIGHT') return AppTheme.errorRed;
+    if (_goalType == 'GAIN_WEIGHT') return AppTheme.successGreen;
+    return AppTheme.accentBlue;
+  }
 }
+

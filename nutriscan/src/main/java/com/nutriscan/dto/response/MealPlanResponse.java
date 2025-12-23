@@ -28,13 +28,18 @@ public class MealPlanResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class PlannedMeal {
+        private Long id;
         private LocalDate date;
         private String mealType; // BREAKFAST, LUNCH, DINNER, SNACK
         private String recipeName;
         private String recipeUri;
         private String recipeImage;
+        private String recipeUrl;
         private Integer servings;
         private Double calories;
+        private Double protein;
+        private Double carbs;
+        private Double fat;
         private List<String> ingredients;
     }
 }

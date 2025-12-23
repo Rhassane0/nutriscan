@@ -6,6 +6,9 @@ import '../../services/ai_service.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/locale_provider.dart';
+import '../../providers/meal_provider.dart';
+import '../../providers/planner_provider.dart';
+import '../../utils/date_formatter.dart';
 
 class RecipeSearchScreen extends StatefulWidget {
   const RecipeSearchScreen({super.key});
@@ -564,19 +567,7 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(children: [
-                                  const Icon(Icons.check_circle, color: Colors.white),
-                                  const SizedBox(width: 8),
-                                  Expanded(child: Text('${recipe.name} ajouté au plan')),
-                                ]),
-                                backgroundColor: AppTheme.successGreen,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          },
+                          onPressed: () => _showAddRecipeOptions(recipe, isDark),
                           icon: const Icon(Icons.add, size: 18),
                           label: const Text('Ajouter'),
                           style: ElevatedButton.styleFrom(
@@ -595,6 +586,469 @@ class _RecipeSearchScreenState extends State<RecipeSearchScreen> {
         ),
       ),
     );
+  }
+
+  void _showAddRecipeOptions(Recipe recipe, bool isDark) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurface : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkBorder : Colors.grey[300],
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              recipe.name,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${recipe.calories.toInt()} cal • ${recipe.proteins.toInt()}g protéines',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Option 1: Consommer maintenant
+            _buildOptionTile(
+              icon: Icons.restaurant,
+              color: AppTheme.successGreen,
+              title: 'Consommer maintenant',
+              subtitle: 'Ajouter à votre journal d\'aujourd\'hui',
+              onTap: () {
+                Navigator.pop(context);
+                _consumeRecipeNow(recipe, isDark);
+              },
+              isDark: isDark,
+            ),
+            const SizedBox(height: 12),
+
+            // Option 2: Planifier pour plus tard
+            _buildOptionTile(
+              icon: Icons.calendar_today,
+              color: AppTheme.accentBlue,
+              title: 'Planifier pour un autre jour',
+              subtitle: 'Choisir une date et un type de repas',
+              onTap: () {
+                Navigator.pop(context);
+                _scheduleRecipe(recipe, isDark);
+              },
+              isDark: isDark,
+            ),
+            const SizedBox(height: 12),
+
+            // Option 3: Ajouter au plan actuel
+            _buildOptionTile(
+              icon: Icons.playlist_add,
+              color: AppTheme.accentPurple,
+              title: 'Ajouter au plan de repas',
+              subtitle: 'Intégrer au plan de la semaine',
+              onTap: () {
+                Navigator.pop(context);
+                _addRecipeToPlan(recipe, isDark);
+              },
+              isDark: isDark,
+            ),
+
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionTile({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(isDark ? 0.15 : 0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _consumeRecipeNow(Recipe recipe, bool isDark) async {
+    final mealProvider = context.read<MealProvider>();
+    final now = DateTime.now();
+
+    // Déterminer le type de repas basé sur l'heure
+    String mealType;
+    if (now.hour < 10) {
+      mealType = 'BREAKFAST';
+    } else if (now.hour < 14) {
+      mealType = 'LUNCH';
+    } else if (now.hour < 17) {
+      mealType = 'SNACK';
+    } else {
+      mealType = 'DINNER';
+    }
+
+    debugPrint('🍽️ Consuming recipe NOW: ${recipe.name}');
+    debugPrint('📅 Date: ${DateFormatter.formatForApi(now)}, Type: $mealType');
+
+    final mealData = {
+      'date': DateFormatter.formatForApi(now),
+      'mealType': mealType,
+      'source': 'RECIPE_SEARCH',
+      'items': [
+        {
+          'foodName': recipe.name,
+          'apiSource': 'EDAMAM',
+          'quantity': 100.0,
+          'servingUnit': 'g',
+          'calories': recipe.calories,
+          'protein': recipe.proteins,
+          'carbs': recipe.carbs,
+          'fat': recipe.fats,
+        }
+      ],
+    };
+
+    debugPrint('📤 Meal data: $mealData');
+
+    final success = await mealProvider.createMeal(mealData);
+    final errorMsg = mealProvider.error;
+
+    if (success) {
+      debugPrint('✅ Meal consumed successfully');
+    } else {
+      debugPrint('❌ Failed to consume meal: $errorMsg');
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(success ? Icons.check_circle : Icons.error, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  success
+                      ? '${recipe.name} ajouté à votre journal'
+                      : 'Erreur: ${errorMsg ?? "Échec de l\'ajout"}',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: success ? AppTheme.successGreen : AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _scheduleRecipe(Recipe recipe, bool isDark) async {
+    DateTime selectedDate = DateTime.now();
+    String selectedMealType = 'LUNCH';
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkSurface : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkBorder : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Planifier "${recipe.name}"',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Date picker
+                GestureDetector(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 30)),
+                    );
+                    if (picked != null) {
+                      setModalState(() => selectedDate = picked);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkSurfaceLight : AppTheme.surfaceGrey,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.calendar_today, color: AppTheme.primaryGreen),
+                        const SizedBox(width: 12),
+                        Text(
+                          DateFormatter.formatForDisplay(selectedDate),
+                          style: TextStyle(
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
+                          ),
+                        ),
+                        const Spacer(),
+                        Icon(Icons.chevron_right, color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Meal type selector
+                Text(
+                  'Type de repas',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: [
+                    _mealTypeChip('BREAKFAST', '🌅 Petit-déj', selectedMealType, (v) => setModalState(() => selectedMealType = v), isDark),
+                    _mealTypeChip('LUNCH', '☀️ Déjeuner', selectedMealType, (v) => setModalState(() => selectedMealType = v), isDark),
+                    _mealTypeChip('DINNER', '🌙 Dîner', selectedMealType, (v) => setModalState(() => selectedMealType = v), isDark),
+                    _mealTypeChip('SNACK', '🍎 Collation', selectedMealType, (v) => setModalState(() => selectedMealType = v), isDark),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await _addRecipeToSpecificDate(recipe, selectedDate, selectedMealType);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryGreen,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: const Text('Planifier', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _mealTypeChip(String value, String label, String selected, Function(String) onSelect, bool isDark) {
+    final isSelected = selected == value;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (_) => onSelect(value),
+      backgroundColor: isDark ? AppTheme.darkSurfaceLight : Colors.grey[100],
+      selectedColor: AppTheme.primaryGreen.withOpacity(0.2),
+      labelStyle: TextStyle(
+        color: isSelected ? AppTheme.primaryGreen : (isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium),
+        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+      ),
+    );
+  }
+
+  Future<void> _addRecipeToSpecificDate(Recipe recipe, DateTime date, String mealType) async {
+    final plannerProvider = context.read<PlannerProvider>();
+    final mealProvider = context.read<MealProvider>();
+    bool success = false;
+    String errorMsg = '';
+
+    // Debug log
+    debugPrint('🍽️ Adding recipe: ${recipe.name}');
+    debugPrint('📅 Date: ${DateFormatter.formatForApi(date)}, Type: $mealType');
+    debugPrint('📊 Has current plan: ${plannerProvider.currentPlan != null}');
+
+    try {
+      // Toujours créer un repas dans le journal (consommé)
+      // Si un plan existe aussi, on peut optionnellement l'ajouter au plan
+      final mealData = {
+        'date': DateFormatter.formatForApi(date),
+        'mealType': mealType,
+        'source': 'RECIPE_SEARCH',
+        'items': [
+          {
+            'foodName': recipe.name,
+            'apiSource': 'EDAMAM',
+            'quantity': 100.0,
+            'servingUnit': 'g',
+            'calories': recipe.calories,
+            'protein': recipe.proteins,
+            'carbs': recipe.carbs,
+            'fat': recipe.fats,
+          }
+        ],
+      };
+
+      debugPrint('📤 Meal data: $mealData');
+      success = await mealProvider.createMeal(mealData);
+      if (!success) {
+        errorMsg = mealProvider.error ?? 'Erreur inconnue';
+        debugPrint('❌ Failed to create meal: $errorMsg');
+      } else {
+        debugPrint('✅ Meal created successfully');
+      }
+    } catch (e) {
+      errorMsg = e.toString();
+      debugPrint('❌ Exception: $errorMsg');
+    }
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(success ? Icons.check_circle : Icons.error, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(child: Text(success
+                  ? '${recipe.name} planifié pour ${DateFormatter.formatForDisplay(date)}'
+                  : 'Erreur: $errorMsg')),
+            ],
+          ),
+          backgroundColor: success ? AppTheme.successGreen : AppTheme.errorRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  String _getDefaultTimeForMealType(String mealType) {
+    switch (mealType) {
+      case 'BREAKFAST': return '08:00:00';
+      case 'LUNCH': return '12:30:00';
+      case 'DINNER': return '19:30:00';
+      case 'SNACK': return '16:00:00';
+      default: return '12:00:00';
+    }
+  }
+
+  Future<void> _addRecipeToPlan(Recipe recipe, bool isDark) async {
+    final plannerProvider = context.read<PlannerProvider>();
+
+    if (plannerProvider.currentPlan == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.info, color: Colors.white),
+              SizedBox(width: 10),
+              Expanded(child: Text('Aucun plan actif. Créez d\'abord un plan de repas.')),
+            ],
+          ),
+          backgroundColor: AppTheme.warningYellow,
+          behavior: SnackBarBehavior.floating,
+          action: SnackBarAction(
+            label: 'Créer',
+            textColor: Colors.white,
+            onPressed: () {
+              Navigator.pushNamed(context, '/planner/generate');
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
+    // Utiliser la même logique de planification
+    _scheduleRecipe(recipe, isDark);
   }
 
   Widget _buildPlaceholderImage(bool isDark) {

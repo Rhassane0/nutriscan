@@ -7,7 +7,7 @@
   "variable": [
     {
       "key": "BASE_URL",
-      "value": "http://localhost:8082/api/v1"
+      "value": "http://localhost:8082/api"
     },
     {
       "key": "token",

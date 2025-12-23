@@ -8,6 +8,7 @@ import '../../providers/locale_provider.dart';
 import '../../config/theme.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../widgets/meal_nutrition_analysis.dart';
+import '../../widgets/daily_nutrition_summary.dart';
 import '../../utils/date_formatter.dart';
 import '../../models/meal.dart';
 import 'add_meal_screen.dart';
@@ -363,71 +364,180 @@ class _MealsScreenState extends State<MealsScreen> with TickerProviderStateMixin
   Widget _buildCompactNutritionCard(MealProvider provider, bool isDark) {
     final totals = provider.getDailyTotals();
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        gradient: isDark
-            ? LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppTheme.primaryGreen.withOpacity(0.12),
-                  AppTheme.primaryGreen.withOpacity(0.06),
-                ],
-              )
-            : LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  AppTheme.primaryGreen.withOpacity(0.03),
-                ],
-              ),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isDark
-              ? AppTheme.primaryGreen.withOpacity(0.15)
-              : AppTheme.primaryGreen.withOpacity(0.1),
+    return GestureDetector(
+      onTap: () => _showDetailedNutritionSummary(context, provider, isDark),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          gradient: isDark
+              ? LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppTheme.primaryGreen.withOpacity(0.12),
+                    AppTheme.primaryGreen.withOpacity(0.06),
+                  ],
+                )
+              : LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.white,
+                    AppTheme.primaryGreen.withOpacity(0.03),
+                  ],
+                ),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isDark
+                ? AppTheme.primaryGreen.withOpacity(0.15)
+                : AppTheme.primaryGreen.withOpacity(0.1),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryGreen.withOpacity(isDark ? 0.1 : 0.06),
+              blurRadius: 15,
+              offset: const Offset(0, 5),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primaryGreen.withOpacity(isDark ? 0.1 : 0.06),
-            blurRadius: 15,
-            offset: const Offset(0, 5),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Icône
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.primaryGreen.withOpacity(0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.insights_rounded,
-              color: AppTheme.primaryGreen,
-              size: 16,
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Nutriments en ligne
-          Expanded(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+        child: Column(
+          children: [
+            Row(
               children: [
-                _buildCompactNutrient('🔥', totals['calories'] ?? 0, 'kcal', AppTheme.caloriesColor, isDark),
-                _buildCompactNutrient('🥩', totals['proteins'] ?? 0, 'g', AppTheme.proteinColor, isDark),
-                _buildCompactNutrient('🍞', totals['carbs'] ?? 0, 'g', AppTheme.carbsColor, isDark),
-                _buildCompactNutrient('🥑', totals['fats'] ?? 0, 'g', AppTheme.fatColor, isDark),
+                // Icône
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryGreen.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.insights_rounded,
+                    color: AppTheme.primaryGreen,
+                    size: 16,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // Nutriments en ligne
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildCompactNutrient('🔥', totals['calories'] ?? 0, 'kcal', AppTheme.caloriesColor, isDark),
+                      _buildCompactNutrient('🥩', totals['proteins'] ?? 0, 'g', AppTheme.proteinColor, isDark),
+                      _buildCompactNutrient('🍞', totals['carbs'] ?? 0, 'g', AppTheme.carbsColor, isDark),
+                      _buildCompactNutrient('🥑', totals['fats'] ?? 0, 'g', AppTheme.fatColor, isDark),
+                    ],
+                  ),
+                ),
+                // Bouton voir plus
+                Icon(
+                  Icons.expand_more_rounded,
+                  color: isDark ? Colors.white54 : AppTheme.textMedium,
+                  size: 20,
+                ),
               ],
             ),
-          ),
-        ],
+            // Indicateur "Appuyez pour plus de détails"
+            const SizedBox(height: 8),
+            Text(
+              '📊 Appuyez pour voir tous les nutriments',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: isDark ? Colors.white38 : AppTheme.textLight,
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  /// Affiche le résumé nutritionnel détaillé dans un bottom sheet
+  void _showDetailedNutritionSummary(BuildContext context, MealProvider provider, bool isDark) {
+    final summary = provider.dailySummary;
+    if (summary == null) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.85,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkBackground : Colors.white,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.symmetric(vertical: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.grey[300],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  // Titre
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [AppTheme.primaryGreen, AppTheme.accentTeal],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.analytics, color: Colors.white, size: 20),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Analyse Nutritionnelle Complète',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? Colors.white : AppTheme.textDark,
+                          ),
+                        ),
+                        const Spacer(),
+                        IconButton(
+                          icon: Icon(Icons.close, color: isDark ? Colors.white54 : AppTheme.textMedium),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Contenu scrollable
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: scrollController,
+                      padding: const EdgeInsets.all(16),
+                      child: DailyNutritionSummary(
+                        summary: summary,
+                        isDark: isDark,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

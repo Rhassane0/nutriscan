@@ -64,35 +64,50 @@ class MealPlan {
 }
 
 class MealItem {
+  final int? id;
   final String date;
   final String mealType;
   final String recipeName;
   final String? recipeUri;
   final String? recipeImage;
+  final String? recipeUrl;
   final int servings;
   final double calories;
+  final double? protein;
+  final double? carbs;
+  final double? fat;
   final List<String> ingredients;
 
   MealItem({
+    this.id,
     required this.date,
     required this.mealType,
     required this.recipeName,
     this.recipeUri,
     this.recipeImage,
+    this.recipeUrl,
     required this.servings,
     required this.calories,
+    this.protein,
+    this.carbs,
+    this.fat,
     required this.ingredients,
   });
 
   factory MealItem.fromJson(Map<String, dynamic> json) {
     return MealItem(
+      id: (json['id'] as num?)?.toInt(),
       date: json['date']?.toString() ?? '',
       mealType: json['mealType']?.toString() ?? 'LUNCH',
       recipeName: json['recipeName']?.toString() ?? 'Recette',
       recipeUri: json['recipeUri']?.toString(),
       recipeImage: json['recipeImage']?.toString(),
+      recipeUrl: json['recipeUrl']?.toString(),
       servings: (json['servings'] as num?)?.toInt() ?? 1,
       calories: (json['calories'] as num?)?.toDouble() ?? 0,
+      protein: (json['protein'] as num?)?.toDouble(),
+      carbs: (json['carbs'] as num?)?.toDouble(),
+      fat: (json['fat'] as num?)?.toDouble(),
       ingredients: (json['ingredients'] as List?)
           ?.map((e) => e.toString())
           .toList() ?? [],

@@ -210,59 +210,12 @@ public class NutritionDatabaseService {
     }
 
     /**
-     * Return mock food data for testing/development when API fails
+     * Return empty list when API fails - no mock data
      */
     private List<FoodInfoResponse> getMockFoodResults(String query) {
-        log.info("Returning mock data for query: {}", query);
-        List<FoodInfoResponse> mockResults = new ArrayList<>();
-
-        if (query.toLowerCase().contains("apple")) {
-            mockResults.add(FoodInfoResponse.builder()
-                    .name("Apple, raw")
-                    .imageUrl(null)
-                    .calories(52.0)
-                    .protein(0.3)
-                    .carbs(13.8)
-                    .fat(0.2)
-                    .nutriScore("A")
-                    .source("EDAMAM_NATURAL_FOODS_MOCK")
-                    .build());
-        } else if (query.toLowerCase().contains("chicken")) {
-            mockResults.add(FoodInfoResponse.builder()
-                    .name("Chicken, breast, raw")
-                    .imageUrl(null)
-                    .calories(165.0)
-                    .protein(31.0)
-                    .carbs(0.0)
-                    .fat(3.6)
-                    .nutriScore("A")
-                    .source("EDAMAM_NATURAL_FOODS_MOCK")
-                    .build());
-        } else if (query.toLowerCase().contains("banana")) {
-            mockResults.add(FoodInfoResponse.builder()
-                    .name("Banana, raw")
-                    .imageUrl(null)
-                    .calories(89.0)
-                    .protein(1.1)
-                    .carbs(23.0)
-                    .fat(0.3)
-                    .nutriScore("A")
-                    .source("EDAMAM_NATURAL_FOODS_MOCK")
-                    .build());
-        } else {
-            mockResults.add(FoodInfoResponse.builder()
-                    .name(query)
-                    .imageUrl(null)
-                    .calories(50.0)
-                    .protein(5.0)
-                    .carbs(10.0)
-                    .fat(1.0)
-                    .nutriScore("B")
-                    .source("EDAMAM_NATURAL_FOODS_MOCK")
-                    .build());
-        }
-
-        return mockResults;
+        log.warn("⚠️ Edamam API failed for query: {}. No fallback data - returning empty list.", query);
+        log.warn("💡 Please check your Edamam API credentials in application.properties");
+        return new ArrayList<>();
     }
 }
 

@@ -12,77 +12,83 @@ class PreferencesScreen extends StatefulWidget {
   State<PreferencesScreen> createState() => _PreferencesScreenState();
 }
 
-class _PreferencesScreenState extends State<PreferencesScreen> {
+class _PreferencesScreenState extends State<PreferencesScreen> with SingleTickerProviderStateMixin {
   bool _isLoading = false;
   bool _isSaving = false;
   String? _error;
-  Map<String, dynamic>? _profile;
 
-  // Controllers pour les infos personnelles
-  final _heightController = TextEditingController();
-  final _weightController = TextEditingController();
-  final _ageController = TextEditingController();
+  late TabController _tabController;
 
-  // Préférences alimentaires
-  String _gender = 'MALE';
-  String _activityLevel = 'MODERATE';
-  String _goalType = 'MAINTAIN';
-  final List<String> _dietaryRestrictions = [];
-  final List<String> _allergies = [];
+  // Recherche
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
 
-  // Options avec emojis et descriptions
-  final Map<String, Map<String, String>> _dietaryRestrictionsInfo = {
-    'vegetarian': {'emoji': '🥬', 'label': 'Végétarien', 'desc': 'Sans viande ni poisson'},
-    'vegan': {'emoji': '🌱', 'label': 'Végan', 'desc': 'Sans produits animaux'},
-    'pescatarian': {'emoji': '🐟', 'label': 'Pescétarien', 'desc': 'Poisson mais pas de viande'},
-    'gluten-free': {'emoji': '🌾', 'label': 'Sans gluten', 'desc': 'Évite le blé, orge, seigle'},
-    'dairy-free': {'emoji': '🥛', 'label': 'Sans lactose', 'desc': 'Évite les produits laitiers'},
-    'halal': {'emoji': '☪️', 'label': 'Halal', 'desc': 'Conforme aux règles islamiques'},
-    'kosher': {'emoji': '✡️', 'label': 'Casher', 'desc': 'Conforme aux règles juives'},
-    'keto': {'emoji': '🥑', 'label': 'Keto', 'desc': 'Faible en glucides'},
-    'paleo': {'emoji': '🦴', 'label': 'Paléo', 'desc': 'Alimentation ancestrale'},
+  // Préférences sélectionnées
+  final Set<String> _selectedDiets = {};
+  final Set<String> _selectedAllergies = {};
+
+  // Toutes les options disponibles
+  final Map<String, Map<String, String>> _allDietsAndPreferences = {
+    // Régimes alimentaires
+    'vegetarian': {'emoji': '🥬', 'label': 'Végétarien', 'category': 'diet'},
+    'vegan': {'emoji': '🌱', 'label': 'Végan', 'category': 'diet'},
+    'pescatarian': {'emoji': '🐟', 'label': 'Pescétarien', 'category': 'diet'},
+    'halal': {'emoji': '☪️', 'label': 'Halal', 'category': 'diet'},
+    'kosher': {'emoji': '✡️', 'label': 'Casher', 'category': 'diet'},
+    'keto': {'emoji': '🥑', 'label': 'Keto', 'category': 'diet'},
+    'paleo': {'emoji': '🦴', 'label': 'Paléo', 'category': 'diet'},
+    'mediterranean': {'emoji': '🫒', 'label': 'Méditerranéen', 'category': 'diet'},
+    'whole30': {'emoji': '🥦', 'label': 'Whole30', 'category': 'diet'},
+    'raw': {'emoji': '🥕', 'label': 'Crudivore', 'category': 'diet'},
+    // Préférences nutritionnelles
+    'gluten-free': {'emoji': '🌾', 'label': 'Sans gluten', 'category': 'pref'},
+    'dairy-free': {'emoji': '🥛', 'label': 'Sans lactose', 'category': 'pref'},
+    'low-carb': {'emoji': '🥩', 'label': 'Faible en glucides', 'category': 'pref'},
+    'high-protein': {'emoji': '💪', 'label': 'Riche en protéines', 'category': 'pref'},
+    'low-fat': {'emoji': '🥗', 'label': 'Faible en gras', 'category': 'pref'},
+    'low-sodium': {'emoji': '🧂', 'label': 'Faible en sel', 'category': 'pref'},
+    'sugar-free': {'emoji': '🍬', 'label': 'Sans sucre', 'category': 'pref'},
+    'high-fiber': {'emoji': '🌾', 'label': 'Riche en fibres', 'category': 'pref'},
+    'fodmap-free': {'emoji': '🍎', 'label': 'Sans FODMAP', 'category': 'pref'},
+    'organic': {'emoji': '🌿', 'label': 'Bio', 'category': 'pref'},
   };
 
-  final Map<String, Map<String, String>> _allergiesInfo = {
+  final Map<String, Map<String, String>> _allAllergies = {
     'peanuts': {'emoji': '🥜', 'label': 'Arachides', 'severity': 'high'},
     'tree-nuts': {'emoji': '🌰', 'label': 'Fruits à coque', 'severity': 'high'},
     'milk': {'emoji': '🥛', 'label': 'Lait', 'severity': 'medium'},
     'eggs': {'emoji': '🥚', 'label': 'Œufs', 'severity': 'medium'},
     'soy': {'emoji': '🫘', 'label': 'Soja', 'severity': 'medium'},
-    'wheat': {'emoji': '🌾', 'label': 'Blé', 'severity': 'medium'},
+    'wheat': {'emoji': '🌾', 'label': 'Blé/Gluten', 'severity': 'medium'},
     'fish': {'emoji': '🐟', 'label': 'Poisson', 'severity': 'high'},
     'shellfish': {'emoji': '🦐', 'label': 'Crustacés', 'severity': 'high'},
-    'sesame': {'emoji': '🫘', 'label': 'Sésame', 'severity': 'medium'},
+    'sesame': {'emoji': '⚪', 'label': 'Sésame', 'severity': 'medium'},
     'celery': {'emoji': '🥬', 'label': 'Céleri', 'severity': 'low'},
     'mustard': {'emoji': '🟡', 'label': 'Moutarde', 'severity': 'low'},
     'sulfites': {'emoji': '🍷', 'label': 'Sulfites', 'severity': 'low'},
-  };
-
-  final Map<String, Map<String, String>> _activityLevels = {
-    'SEDENTARY': {'emoji': '🪑', 'label': 'Sédentaire', 'desc': 'Peu ou pas d\'exercice'},
-    'LIGHT': {'emoji': '🚶', 'label': 'Légère', 'desc': 'Exercice léger 1-3 jours/sem'},
-    'MODERATE': {'emoji': '🏃', 'label': 'Modérée', 'desc': 'Exercice modéré 3-5 jours/sem'},
-    'ACTIVE': {'emoji': '💪', 'label': 'Active', 'desc': 'Exercice intense 6-7 jours/sem'},
-    'VERY_ACTIVE': {'emoji': '🏋️', 'label': 'Très active', 'desc': 'Exercice très intense quotidien'},
-  };
-
-  final Map<String, Map<String, String>> _goalTypes = {
-    'LOSE_WEIGHT': {'emoji': '📉', 'label': 'Perdre du poids', 'color': '0xFFE53935'},
-    'MAINTAIN': {'emoji': '⚖️', 'label': 'Maintenir', 'color': '0xFF2196F3'},
-    'GAIN_WEIGHT': {'emoji': '💪', 'label': 'Prendre du poids', 'color': '0xFF4CAF50'},
+    'lupin': {'emoji': '🌿', 'label': 'Lupin', 'severity': 'medium'},
+    'mollusks': {'emoji': '🦪', 'label': 'Mollusques', 'severity': 'high'},
+    'corn': {'emoji': '🌽', 'label': 'Maïs', 'severity': 'low'},
+    'pork': {'emoji': '🐷', 'label': 'Porc', 'severity': 'medium'},
+    'beef': {'emoji': '🐄', 'label': 'Bœuf', 'severity': 'low'},
+    'chicken': {'emoji': '🐔', 'label': 'Poulet', 'severity': 'low'},
+    'alcohol': {'emoji': '🍺', 'label': 'Alcool', 'severity': 'medium'},
+    'caffeine': {'emoji': '☕', 'label': 'Caféine', 'severity': 'low'},
+    'garlic': {'emoji': '🧄', 'label': 'Ail', 'severity': 'low'},
+    'onion': {'emoji': '🧅', 'label': 'Oignon', 'severity': 'low'},
   };
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _loadProfile();
   }
 
   @override
   void dispose() {
-    _heightController.dispose();
-    _weightController.dispose();
-    _ageController.dispose();
+    _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -97,24 +103,20 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
       final profile = await userService.getProfile();
 
       setState(() {
-        _profile = profile;
-        _heightController.text = profile['heightCm']?.toString() ?? '';
-        _weightController.text = profile['initialWeightKg']?.toString() ?? '';
-        _ageController.text = profile['age']?.toString() ?? '';
-        _gender = profile['gender'] ?? 'MALE';
-        _activityLevel = profile['activityLevel'] ?? 'MODERATE';
-        _goalType = profile['goalType'] ?? 'MAINTAIN';
-
         if (profile['dietPreferences'] != null && profile['dietPreferences'] is String) {
-          final prefs = (profile['dietPreferences'] as String).split(',').map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty);
-          _dietaryRestrictions.clear();
-          _dietaryRestrictions.addAll(prefs);
+          final prefs = (profile['dietPreferences'] as String)
+              .split(',')
+              .map((e) => e.trim().toLowerCase())
+              .where((e) => e.isNotEmpty);
+          _selectedDiets.addAll(prefs);
         }
 
         if (profile['allergies'] != null && profile['allergies'] is String) {
-          final algs = (profile['allergies'] as String).split(',').map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty);
-          _allergies.clear();
-          _allergies.addAll(algs);
+          final algs = (profile['allergies'] as String)
+              .split(',')
+              .map((e) => e.trim().toLowerCase())
+              .where((e) => e.isNotEmpty);
+          _selectedAllergies.addAll(algs);
         }
 
         _isLoading = false;
@@ -136,33 +138,26 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     try {
       final userService = context.read<UserService>();
       await userService.updateProfile({
-        'heightCm': int.tryParse(_heightController.text) ?? 170,
-        'initialWeightKg': double.tryParse(_weightController.text) ?? 70,
-        'age': int.tryParse(_ageController.text) ?? 25,
-        'gender': _gender,
-        'activityLevel': _activityLevel,
-        'goalType': _goalType,
-        'dietPreferences': _dietaryRestrictions.join(', '),
-        'allergies': _allergies.join(', '),
+        'dietPreferences': _selectedDiets.join(', '),
+        'allergies': _selectedAllergies.join(', '),
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Row(
-              children: const [
+            content: const Row(
+              children: [
                 Icon(Icons.check_circle, color: Colors.white),
                 SizedBox(width: 8),
-                Text('Profil mis à jour avec succès !'),
+                Text('Préférences sauvegardées !'),
               ],
             ),
             backgroundColor: AppTheme.successGreen,
             behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
-        setState(() {
-          _isSaving = false;
-        });
+        setState(() => _isSaving = false);
       }
     } catch (e) {
       setState(() {
@@ -172,585 +167,530 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     }
   }
 
+  List<MapEntry<String, Map<String, String>>> _getFilteredDiets() {
+    if (_searchQuery.isEmpty) {
+      return _allDietsAndPreferences.entries.toList();
+    }
+    return _allDietsAndPreferences.entries.where((entry) {
+      final label = entry.value['label']!.toLowerCase();
+      return label.contains(_searchQuery.toLowerCase());
+    }).toList();
+  }
+
+  List<MapEntry<String, Map<String, String>>> _getFilteredAllergies() {
+    if (_searchQuery.isEmpty) {
+      return _allAllergies.entries.toList();
+    }
+    return _allAllergies.entries.where((entry) {
+      final label = entry.value['label']!.toLowerCase();
+      return label.contains(_searchQuery.toLowerCase());
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
     final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Préférences & Profil'),
-        backgroundColor: AppTheme.primaryGreen,
-        foregroundColor: Colors.white,
-        actions: [
-          if (!_isLoading)
-            TextButton.icon(
-              onPressed: _isSaving ? null : _saveProfile,
-              icon: _isSaving
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Icon(Icons.save, color: Colors.white),
-              label: Text(
-                _isSaving ? 'Sauvegarde...' : 'Sauvegarder',
-                style: const TextStyle(color: Colors.white),
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.backgroundLight,
+      body: _isLoading
+          ? const LoadingIndicator(message: 'Chargement...')
+          : Container(
+              decoration: BoxDecoration(
+                gradient: isDark ? AppTheme.darkGradient : null,
               ),
-            ),
-        ],
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: isDark ? AppTheme.darkGradient : null,
-          color: isDark ? null : AppTheme.backgroundLight,
-        ),
-        child: _isLoading
-            ? const LoadingIndicator(message: 'Chargement du profil...')
-            : RefreshIndicator(
-                onRefresh: _loadProfile,
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  physics: const AlwaysScrollableScrollPhysics(),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (_error != null)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          margin: const EdgeInsets.only(bottom: 16),
-                          decoration: BoxDecoration(
-                            color: AppTheme.errorRed.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppTheme.errorRed),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.error_outline, color: AppTheme.errorRed),
-                              const SizedBox(width: 8),
-                              Expanded(child: Text(_error!, style: const TextStyle(color: AppTheme.errorRed))),
-                              IconButton(
-                                icon: const Icon(Icons.close, color: AppTheme.errorRed),
-                                onPressed: () => setState(() => _error = null),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                      // Section: Informations Personnelles
-                      _buildSectionHeader('👤 Informations Personnelles', 'Vos données de base', isDark),
-                      _buildInfoCard([
-                        _buildNumberField(
-                          controller: _heightController,
-                          label: 'Taille',
-                          suffix: 'cm',
-                          icon: Icons.height,
-                          iconColor: Colors.blue,
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildNumberField(
-                          controller: _weightController,
-                          label: 'Poids actuel',
-                          suffix: 'kg',
-                          icon: Icons.monitor_weight,
-                          iconColor: Colors.orange,
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildNumberField(
-                          controller: _ageController,
-                          label: 'Âge',
-                          suffix: 'ans',
-                          icon: Icons.cake,
-                          iconColor: Colors.pink,
-                          isDark: isDark,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildGenderSelector(isDark),
-                      ], isDark),
-
-                      const SizedBox(height: 24),
-
-                      // Section: Objectif
-                      _buildSectionHeader('🎯 Votre Objectif', 'Que souhaitez-vous accomplir ?', isDark),
-                      _buildGoalSelector(isDark),
-
-                      const SizedBox(height: 24),
-
-                      // Section: Niveau d'activité
-                      _buildSectionHeader('🏃 Niveau d\'Activité', 'À quelle fréquence faites-vous du sport ?', isDark),
-                      _buildActivitySelector(isDark),
-
-                      const SizedBox(height: 24),
-
-                      // Section: Restrictions alimentaires
-                      _buildSectionHeader('🥗 Régimes & Préférences', 'Sélectionnez vos préférences alimentaires', isDark),
-                      _buildDietaryRestrictionsSelector(isDark),
-
-                      const SizedBox(height: 24),
-
-                      // Section: Allergies
-                      _buildSectionHeader('⚠️ Allergies', 'Sélectionnez vos allergies alimentaires', isDark),
-                      _buildAllergiesSelector(isDark),
-
-                      const SizedBox(height: 32),
-
-                      // Bouton de sauvegarde
-                      ElevatedButton.icon(
-                        onPressed: _isSaving ? null : _saveProfile,
-                        icon: _isSaving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : const Icon(Icons.save),
-                        label: Text(_isSaving ? 'Sauvegarde en cours...' : 'Enregistrer les Modifications'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryGreen,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                      const SizedBox(height: 80),
-                    ],
-                  ),
-                ),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String title, String subtitle, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
-            ),
-          ),
-          Text(
-            subtitle,
-            style: TextStyle(
-              fontSize: 14,
-              color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoCard(List<Widget> children, bool isDark) {
-    return Card(
-      elevation: isDark ? 0 : 2,
-      color: isDark ? AppTheme.darkSurface : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(children: children),
-      ),
-    );
-  }
-
-  Widget _buildNumberField({
-    required TextEditingController controller,
-    required String label,
-    required String suffix,
-    required IconData icon,
-    required Color iconColor,
-    required bool isDark,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: TextInputType.number,
-      style: TextStyle(
-        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
-        fontWeight: FontWeight.w600,
-      ),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(
-          color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
-        ),
-        suffixText: suffix,
-        suffixStyle: TextStyle(
-          color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
-          fontWeight: FontWeight.w600,
-        ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppTheme.primaryGreen, width: 2),
-        ),
-        prefixIcon: Container(
-          margin: const EdgeInsets.all(8),
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: iconColor.withOpacity(isDark ? 0.2 : 0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: iconColor, size: 20),
-        ),
-        filled: true,
-        fillColor: isDark ? AppTheme.darkSurfaceLight : Colors.grey[50],
-      ),
-    );
-  }
-
-  Widget _buildGenderSelector(bool isDark) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildGenderOption('MALE', '👨', 'Homme', isDark),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _buildGenderOption('FEMALE', '👩', 'Femme', isDark),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGenderOption(String value, String emoji, String label, bool isDark) {
-    final isSelected = _gender == value;
-    return InkWell(
-      onTap: () => setState(() => _gender = value),
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppTheme.primaryGreen.withOpacity(isDark ? 0.2 : 0.1)
-              : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[100]),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? AppTheme.primaryGreen : (isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected
-                    ? AppTheme.primaryGreen
-                    : (isDark ? AppTheme.darkTextPrimary : Colors.grey[700]),
-              ),
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              const Icon(Icons.check_circle, color: AppTheme.primaryGreen, size: 20),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildGoalSelector(bool isDark) {
-    return Card(
-      elevation: isDark ? 0 : 2,
-      color: isDark ? AppTheme.darkSurface : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: _goalTypes.entries.map((entry) {
-            final isSelected = _goalType == entry.key;
-            final color = Color(int.parse(entry.value['color']!));
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                onTap: () => setState(() => _goalType = entry.key),
-                borderRadius: BorderRadius.circular(12),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? color.withOpacity(isDark ? 0.2 : 0.1)
-                        : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[50]),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? color : (isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(entry.value['emoji']!, style: const TextStyle(fontSize: 28)),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          entry.value['label']!,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? color : (isDark ? AppTheme.darkTextPrimary : Colors.grey[700]),
-                          ),
-                        ),
-                      ),
-                      if (isSelected)
-                        Icon(Icons.check_circle, color: color, size: 24),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildActivitySelector(bool isDark) {
-    return Card(
-      elevation: isDark ? 0 : 2,
-      color: isDark ? AppTheme.darkSurface : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: _activityLevels.entries.map((entry) {
-            final isSelected = _activityLevel == entry.key;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                onTap: () => setState(() => _activityLevel = entry.key),
-                borderRadius: BorderRadius.circular(12),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? AppTheme.accentBlue.withOpacity(isDark ? 0.2 : 0.1)
-                        : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[50]),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isSelected ? AppTheme.accentBlue : (isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                      width: isSelected ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(entry.value['emoji']!, style: const TextStyle(fontSize: 24)),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              entry.value['label']!,
-                              style: TextStyle(
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                color: isSelected ? AppTheme.accentBlue : (isDark ? AppTheme.darkTextPrimary : Colors.grey[800]),
-                              ),
-                            ),
-                            Text(
-                              entry.value['desc']!,
-                              style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600]),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (isSelected)
-                        const Icon(Icons.check_circle, color: AppTheme.accentBlue, size: 20),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDietaryRestrictionsSelector(bool isDark) {
-    return Card(
-      elevation: isDark ? 0 : 2,
-      color: isDark ? AppTheme.darkSurface : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: _dietaryRestrictionsInfo.entries.map((entry) {
-            final isSelected = _dietaryRestrictions.contains(entry.key);
-            return InkWell(
-              onTap: () {
-                setState(() {
-                  if (isSelected) {
-                    _dietaryRestrictions.remove(entry.key);
-                  } else {
-                    _dietaryRestrictions.add(entry.key);
-                  }
-                });
-              },
-              borderRadius: BorderRadius.circular(20),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? AppTheme.primaryGreen.withOpacity(isDark ? 0.25 : 0.15)
-                      : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[100]),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected ? AppTheme.primaryGreen : (isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              child: SafeArea(
+                child: Column(
                   children: [
-                    Text(entry.value['emoji']!, style: const TextStyle(fontSize: 18)),
-                    const SizedBox(width: 6),
-                    Text(
-                      entry.value['label']!,
-                      style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        color: isSelected ? AppTheme.primaryGreen : (isDark ? AppTheme.darkTextPrimary : Colors.grey[700]),
+                    _buildHeader(isDark),
+                    _buildSearchBar(isDark),
+                    _buildTabBar(isDark),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _buildDietsTab(isDark),
+                          _buildAllergiesTab(isDark),
+                        ],
                       ),
                     ),
-                    if (isSelected) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.check, color: AppTheme.primaryGreen, size: 16),
-                    ],
+                    _buildBottomBar(isDark),
                   ],
                 ),
               ),
-            );
-          }).toList(),
+            ),
+    );
+  }
+
+  Widget _buildHeader(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey[300]!),
+              ),
+              child: Icon(Icons.arrow_back_ios_new, size: 20, color: isDark ? Colors.white : AppTheme.textDark),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Préférences',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppTheme.textDark,
+                  ),
+                ),
+                Text(
+                  'Alimentaires',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryGreen,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          _buildSelectedCount(isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectedCount(bool isDark) {
+    final total = _selectedDiets.length + _selectedAllergies.length;
+    if (total == 0) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: AppTheme.primaryGlowGradient,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.check_circle, color: Colors.white, size: 18),
+          const SizedBox(width: 6),
+          Text(
+            '$total',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey[200]!),
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (value) => setState(() => _searchQuery = value),
+        style: TextStyle(
+          color: isDark ? Colors.white : AppTheme.textDark,
+          fontSize: 16,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Rechercher régime, préférence, allergie...',
+          hintStyle: TextStyle(
+            color: isDark ? AppTheme.darkTextTertiary : Colors.grey[400],
+            fontSize: 15,
+          ),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: isDark ? AppTheme.darkTextSecondary : Colors.grey[500],
+            size: 24,
+          ),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear, color: isDark ? AppTheme.darkTextSecondary : Colors.grey[500]),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : null,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
       ),
     );
   }
 
-  Widget _buildAllergiesSelector(bool isDark) {
-    return Card(
-      elevation: isDark ? 0 : 2,
-      color: isDark ? AppTheme.darkSurface : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
+  Widget _buildTabBar(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.grey[100],
+        borderRadius: BorderRadius.circular(14),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppTheme.warningYellow.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber, color: Colors.orange, size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Sélectionnez vos allergies pour éviter ces ingrédients dans vos recommandations',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+      child: TabBar(
+        controller: _tabController,
+        indicator: BoxDecoration(
+          gradient: AppTheme.primaryGlowGradient,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryGreen.withOpacity(0.3),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        indicatorSize: TabBarIndicatorSize.tab,
+        dividerColor: Colors.transparent,
+        labelColor: Colors.white,
+        unselectedLabelColor: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
+        labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        padding: const EdgeInsets.all(4),
+        tabs: [
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('🥗'),
+                const SizedBox(width: 8),
+                const Text('Régimes'),
+                if (_selectedDiets.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(10),
                     ),
+                    child: Text('${_selectedDiets.length}', style: const TextStyle(fontSize: 12)),
                   ),
                 ],
-              ),
+              ],
             ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _allergiesInfo.entries.map((entry) {
-                final isSelected = _allergies.contains(entry.key);
-                final severityColor = entry.value['severity'] == 'high'
-                    ? AppTheme.errorRed
-                    : entry.value['severity'] == 'medium'
-                        ? Colors.orange
-                        : Colors.amber;
-
-                return InkWell(
-                  onTap: () {
-                    setState(() {
-                      if (isSelected) {
-                        _allergies.remove(entry.key);
-                      } else {
-                        _allergies.add(entry.key);
-                      }
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(20),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
+          Tab(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Text('⚠️'),
+                const SizedBox(width: 8),
+                const Text('Allergies'),
+                if (_selectedAllergies.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: isSelected
-                          ? severityColor.withOpacity(isDark ? 0.25 : 0.15)
-                          : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[100]),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: isSelected ? severityColor : (isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                        width: isSelected ? 2 : 1,
-                      ),
+                      color: Colors.white.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(entry.value['emoji']!, style: const TextStyle(fontSize: 18)),
-                        const SizedBox(width: 6),
+                    child: Text('${_selectedAllergies.length}', style: const TextStyle(fontSize: 12)),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDietsTab(bool isDark) {
+    final filtered = _getFilteredDiets();
+
+    if (filtered.isEmpty) {
+      return _buildEmptySearch(isDark, 'régime ou préférence');
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final entry = filtered[index];
+        final isSelected = _selectedDiets.contains(entry.key);
+
+        return _buildItemCard(
+          key: entry.key,
+          emoji: entry.value['emoji']!,
+          label: entry.value['label']!,
+          isSelected: isSelected,
+          isDark: isDark,
+          onTap: () {
+            setState(() {
+              if (isSelected) {
+                _selectedDiets.remove(entry.key);
+              } else {
+                _selectedDiets.add(entry.key);
+              }
+            });
+          },
+          color: AppTheme.primaryGreen,
+        );
+      },
+    );
+  }
+
+  Widget _buildAllergiesTab(bool isDark) {
+    final filtered = _getFilteredAllergies();
+
+    if (filtered.isEmpty) {
+      return _buildEmptySearch(isDark, 'allergie');
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+      itemCount: filtered.length,
+      itemBuilder: (context, index) {
+        final entry = filtered[index];
+        final isSelected = _selectedAllergies.contains(entry.key);
+        final severity = entry.value['severity'];
+        final color = severity == 'high' ? AppTheme.errorRed
+            : severity == 'medium' ? Colors.orange
+            : Colors.amber;
+
+        return _buildItemCard(
+          key: entry.key,
+          emoji: entry.value['emoji']!,
+          label: entry.value['label']!,
+          isSelected: isSelected,
+          isDark: isDark,
+          onTap: () {
+            setState(() {
+              if (isSelected) {
+                _selectedAllergies.remove(entry.key);
+              } else {
+                _selectedAllergies.add(entry.key);
+              }
+            });
+          },
+          color: color,
+          subtitle: severity == 'high' ? 'Allergie majeure'
+              : severity == 'medium' ? 'Allergie modérée'
+              : 'Sensibilité',
+        );
+      },
+    );
+  }
+
+  Widget _buildItemCard({
+    required String key,
+    required String emoji,
+    required String label,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+    required Color color,
+    String? subtitle,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(16),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? color.withOpacity(isDark ? 0.2 : 0.1)
+                  : (isDark ? AppTheme.darkSurface : Colors.white),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isSelected ? color : (isDark ? AppTheme.darkBorder : Colors.grey[200]!),
+                width: isSelected ? 2 : 1,
+              ),
+              boxShadow: isSelected ? [
+                BoxShadow(
+                  color: color.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ] : null,
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(isDark ? 0.2 : 0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(emoji, style: const TextStyle(fontSize: 22)),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? color : (isDark ? Colors.white : AppTheme.textDark),
+                        ),
+                      ),
+                      if (subtitle != null)
                         Text(
-                          entry.value['label']!,
+                          subtitle,
                           style: TextStyle(
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                            color: isSelected ? severityColor : (isDark ? AppTheme.darkTextPrimary : Colors.grey[700]),
+                            fontSize: 12,
+                            color: isDark ? AppTheme.darkTextTertiary : Colors.grey[500],
                           ),
                         ),
-                        if (isSelected) ...[
-                          const SizedBox(width: 4),
-                          Icon(Icons.close, color: severityColor, size: 16),
-                        ],
-                      ],
+                    ],
+                  ),
+                ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: isSelected ? color : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? color : (isDark ? AppTheme.darkBorder : Colors.grey[300]!),
+                      width: 2,
                     ),
                   ),
-                );
-              }).toList(),
+                  child: isSelected
+                      ? const Icon(Icons.check, color: Colors.white, size: 18)
+                      : null,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptySearch(bool isDark, String type) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off_rounded,
+            size: 64,
+            color: isDark ? AppTheme.darkTextTertiary : Colors.grey[300],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Aucun $type trouvé',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Essayez une autre recherche',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? AppTheme.darkTextTertiary : Colors.grey[400],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            if (_selectedDiets.isNotEmpty || _selectedAllergies.isNotEmpty)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    _selectedDiets.clear();
+                    _selectedAllergies.clear();
+                  });
+                },
+                child: Text(
+                  'Effacer tout',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
+                  ),
+                ),
+              ),
+            const Spacer(),
+            SizedBox(
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _isSaving ? null : _saveProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryGreen,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Row(
+                        children: [
+                          Icon(Icons.save_rounded, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Enregistrer',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                          ),
+                        ],
+                      ),
+              ),
             ),
           ],
         ),
@@ -758,3 +698,4 @@ class _PreferencesScreenState extends State<PreferencesScreen> {
     );
   }
 }
+

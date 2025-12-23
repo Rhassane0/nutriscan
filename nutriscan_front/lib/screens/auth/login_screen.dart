@@ -306,7 +306,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       animation: _glowAnimation,
       builder: (context, child) {
         return Container(
-          padding: const EdgeInsets.all(28),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
@@ -338,19 +338,33 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
             child: BackdropFilter(
               filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
               child: Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
+                width: 120,
+                height: 120,
+                decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      AppTheme.primaryGreen.withOpacity(0.8),
-                      AppTheme.primaryGreenDark.withOpacity(0.9),
-                    ],
+                ),
+                child: ClipOval(
+                  child: Image.asset(
+                    'assets/images/logo.jpg',
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            AppTheme.primaryGreen.withOpacity(0.8),
+                            AppTheme.primaryGreenDark.withOpacity(0.9),
+                          ],
+                        ),
+                      ),
+                      child: const Center(
+                        child: Text('🥗', style: TextStyle(fontSize: 48)),
+                      ),
+                    ),
                   ),
                 ),
-                child: const Text('🥗', style: TextStyle(fontSize: 48)),
               ),
             ),
           ),

@@ -5,13 +5,14 @@ import com.nutriscan.dto.response.DailySummaryResponse;
 import com.nutriscan.dto.response.GoalsResponse;
 import com.nutriscan.dto.response.OffProductResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.lang.Nullable;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
-import java.lang.reflect.Method;
 import java.time.LocalDate;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -21,14 +22,20 @@ public class AIService {
     private final OpenFoodFactsService openFoodFactsService;
     private final MealService mealService;
     private final GoalsService goalsService;
-    private final Object generativeModel;
+    private final RestTemplate restTemplate;
+
+    @Value("${gemini.api.key:}")
+    private String geminiApiKey;
+
+    @Value("${gemini.model:gemma-3-27b-it}")
+    private String geminiModel;
 
     public AIService(OpenFoodFactsService openFoodFactsService, MealService mealService, GoalsService goalsService,
-                     @Qualifier("generativeModel") @Nullable Object generativeModel) {
+                     RestTemplate restTemplate) {
         this.openFoodFactsService = openFoodFactsService;
         this.mealService = mealService;
         this.goalsService = goalsService;
-        this.generativeModel = generativeModel;
+        this.restTemplate = restTemplate;
     }
 
     public OffProductResponse scanBarcodeAndAnalyze(String barcode) {
@@ -44,24 +51,29 @@ public class AIService {
 
         if (summary == null || summary.getTotalCalories() == null || summary.getTotalCalories() == 0) {
             return AIExplanationResponse.builder()
-                    .explanation("Aucun repas enregistré pour cette journée.")
-                    .tips("Commencez votre journée en prenant un bon petit-déjeuner riche en protéines et en fibres.")
-                    .nutritionInsight("Une alimentation régulière est clé pour atteindre vos objectifs.")
+                    .explanation("Aucun repas enregistre pour cette journee.")
+                    .tips("Commencez votre journee en prenant un bon petit-dejeuner riche en proteines et en fibres.")
+                    .nutritionInsight("Une alimentation reguliere est cle pour atteindre vos objectifs.")
                     .isProductAnalysis(false)
                     .build();
         }
 
         try {
-            if (generativeModel == null) {
+            if (!isGeminiConfigured()) {
                 log.warn("Gemini not configured, using fallback response");
                 return buildFallbackDailyResponse(summary, goals);
             }
 
             String prompt = buildDailyAnalysisPrompt(summary, goals, date);
-            String geminiResponse = callGemini(prompt);
-            return parseGeminiDailyResponse(geminiResponse);
+            String geminiResponse = callGeminiAPI(prompt);
+
+            if (geminiResponse != null && !geminiResponse.isEmpty()) {
+                return parseGeminiDailyResponse(geminiResponse);
+            }
+
+            return buildFallbackDailyResponse(summary, goals);
         } catch (Exception e) {
-            log.error("Erreur lors de l'appel à Gemini", e);
+            log.error("Erreur lors de l'appel a Gemini", e);
             return buildFallbackDailyResponse(summary, goals);
         }
     }
@@ -74,57 +86,93 @@ public class AIService {
 
         if (product == null || product.getProduct() == null) {
             return AIExplanationResponse.builder()
-                    .explanation("Produit non trouvé.")
+                    .explanation("Produit non trouve.")
                     .isProductAnalysis(true)
                     .build();
         }
 
         try {
-            if (generativeModel == null) {
+            if (!isGeminiConfigured()) {
                 log.warn("Gemini not configured, using fallback response");
                 return buildFallbackProductResponse(product);
             }
 
             String prompt = buildProductAnalysisPrompt(product, goals);
-            String geminiResponse = callGemini(prompt);
-            return parseGeminiProductResponse(geminiResponse, product);
+            String geminiResponse = callGeminiAPI(prompt);
+
+            if (geminiResponse != null && !geminiResponse.isEmpty()) {
+                return parseGeminiProductResponse(geminiResponse, product);
+            }
+
+            return buildFallbackProductResponse(product);
         } catch (Exception e) {
-            log.error("Erreur lors de l'appel à Gemini pour le produit", e);
+            log.error("Erreur lors de l'appel a Gemini pour le produit", e);
             return buildFallbackProductResponse(product);
         }
     }
 
-    private String callGemini(String prompt) {
+    private boolean isGeminiConfigured() {
+        return geminiApiKey != null && !geminiApiKey.isEmpty() && !geminiApiKey.equals("your-gemini-api-key-here");
+    }
+
+    private String callGeminiAPI(String prompt) {
         try {
-            if (generativeModel == null) {
-                throw new RuntimeException("Gemini model not available");
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/" + geminiModel + ":generateContent?key=" + geminiApiKey;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            Map<String, Object> requestBody = new HashMap<>();
+            List<Map<String, Object>> contents = new ArrayList<>();
+            Map<String, Object> content = new HashMap<>();
+            List<Map<String, Object>> parts = new ArrayList<>();
+
+            Map<String, Object> textPart = new HashMap<>();
+            textPart.put("text", prompt);
+            parts.add(textPart);
+
+            content.put("parts", parts);
+            contents.add(content);
+            requestBody.put("contents", contents);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            log.debug("Calling Gemini API...");
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
+
+            if (response.getBody() != null) {
+                List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.getBody().get("candidates");
+                if (candidates != null && !candidates.isEmpty()) {
+                    Map<String, Object> candidate = candidates.get(0);
+                    Map<String, Object> contentResp = (Map<String, Object>) candidate.get("content");
+                    if (contentResp != null) {
+                        List<Map<String, Object>> partsResp = (List<Map<String, Object>>) contentResp.get("parts");
+                        if (partsResp != null && !partsResp.isEmpty()) {
+                            String text = (String) partsResp.get(0).get("text");
+                            log.info("Gemini response received ({} chars)", text.length());
+                            return text;
+                        }
+                    }
+                }
             }
 
-            log.debug("Calling Gemini with prompt");
-            Method generateContentMethod = generativeModel.getClass()
-                    .getMethod("generateContent", String.class);
-            Object response = generateContentMethod.invoke(generativeModel, prompt);
-
-            Method getTextMethod = response.getClass().getMethod("getText");
-            String result = (String) getTextMethod.invoke(response);
-
-            log.debug("Gemini response received");
-            return result;
+            return null;
         } catch (Exception e) {
-            log.error("Erreur lors de l'appel à Gemini: {}", e.getMessage());
-            throw new RuntimeException("Impossible de contacter le service IA", e);
+            log.error("Error calling Gemini API: {}", e.getMessage());
+            return null;
         }
     }
 
     private String buildDailyAnalysisPrompt(DailySummaryResponse summary, GoalsResponse goals, LocalDate date) {
         return String.format(
-                "Tu es un coach nutritionnel expérimenté. Analyse le résumé nutritionnel du jour et fournis des conseils personnalisés EN FRANÇAIS.\n\n" +
+                "Tu es un coach nutritionnel experimente. Analyse le resume nutritionnel du jour et fournis des conseils personnalises EN FRANCAIS.\n\n" +
                 "Date: %s\n" +
-                "Calories consommées: %.1f / Objectif: %.1f\n" +
-                "Protéines: %.1f g / Objectif: %.1f g\n" +
+                "Calories consommees: %.1f / Objectif: %.1f\n" +
+                "Proteines: %.1f g / Objectif: %.1f g\n" +
                 "Glucides: %.1f g / Objectif: %.1f g\n" +
                 "Lipides: %.1f g / Objectif: %.1f g\n\n" +
-                "Répondre en format JSON avec les clés: explanation, tips, nutritionInsight",
+                "Reponds UNIQUEMENT en format JSON avec les cles: explanation, tips, nutritionInsight\n" +
+                "Exemple: {\"explanation\": \"...\", \"tips\": \"...\", \"nutritionInsight\": \"...\"}",
                 date,
                 summary.getTotalCalories(), goals.getTargetCalories(),
                 summary.getTotalProtein(), goals.getProteinGr(),
@@ -139,12 +187,13 @@ public class AIService {
         Double protein = extractProteinFromNutriments(prod.getNutriments());
 
         return String.format(
-                "Tu es un coach nutritionnel. Analyse ce produit alimentaire et dis si c'est bon pour quelqu'un dont l'objectif est %s. Répondre EN FRANÇAIS.\n\n" +
+                "Tu es un coach nutritionnel. Analyse ce produit alimentaire et dis si c'est bon pour quelqu'un dont l'objectif est %s. Reponds EN FRANCAIS.\n\n" +
                 "Produit: %s\n" +
                 "Calories: %.1f\n" +
-                "Protéines: %.1f g\n" +
+                "Proteines: %.1f g\n" +
                 "NutriScore: %s\n\n" +
-                "Répondre en format JSON avec les clés: explanation, productAdvice, tips",
+                "Reponds UNIQUEMENT en format JSON avec les cles: explanation, productAdvice, tips\n" +
+                "Exemple: {\"explanation\": \"...\", \"productAdvice\": \"...\", \"tips\": \"...\"}",
                 goals.getGoalType(),
                 prod.getProductName(),
                 calories != null ? calories : 0,
@@ -173,61 +222,72 @@ public class AIService {
 
     private AIExplanationResponse parseGeminiDailyResponse(String geminiResponse) {
         try {
-            if (geminiResponse.contains("{")) {
-                int start = geminiResponse.indexOf("{");
-                int end = geminiResponse.lastIndexOf("}") + 1;
-                String jsonPart = geminiResponse.substring(start, end);
+            // Nettoyer la reponse
+            String cleanResponse = geminiResponse
+                    .replaceAll("```json\\s*", "")
+                    .replaceAll("```\\s*", "")
+                    .trim();
+
+            if (cleanResponse.contains("{")) {
+                int start = cleanResponse.indexOf("{");
+                int end = cleanResponse.lastIndexOf("}") + 1;
+                String jsonPart = cleanResponse.substring(start, end);
 
                 String explanation = extractJsonValue(jsonPart, "explanation");
                 String tips = extractJsonValue(jsonPart, "tips");
                 String insight = extractJsonValue(jsonPart, "nutritionInsight");
 
                 return AIExplanationResponse.builder()
-                        .explanation(explanation)
-                        .tips(tips)
-                        .nutritionInsight(insight)
+                        .explanation(explanation.isEmpty() ? geminiResponse : explanation)
+                        .tips(tips.isEmpty() ? "Continuez vos efforts!" : tips)
+                        .nutritionInsight(insight.isEmpty() ? "Suivez regulierement vos repas." : insight)
                         .isProductAnalysis(false)
                         .build();
             }
         } catch (Exception e) {
-            log.warn("Erreur lors du parsing de la réponse Gemini", e);
+            log.warn("Erreur lors du parsing de la reponse Gemini", e);
         }
 
         return AIExplanationResponse.builder()
                 .explanation(geminiResponse)
-                .tips("Consultez l'analyse complète ci-dessus.")
-                .nutritionInsight("Continuez à suivre vos repas régulièrement.")
+                .tips("Consultez l'analyse complete ci-dessus.")
+                .nutritionInsight("Continuez a suivre vos repas regulierement.")
                 .isProductAnalysis(false)
                 .build();
     }
 
     private AIExplanationResponse parseGeminiProductResponse(String geminiResponse, OffProductResponse product) {
         try {
-            if (geminiResponse.contains("{")) {
-                int start = geminiResponse.indexOf("{");
-                int end = geminiResponse.lastIndexOf("}") + 1;
-                String jsonPart = geminiResponse.substring(start, end);
+            String cleanResponse = geminiResponse
+                    .replaceAll("```json\\s*", "")
+                    .replaceAll("```\\s*", "")
+                    .trim();
+
+            if (cleanResponse.contains("{")) {
+                int start = cleanResponse.indexOf("{");
+                int end = cleanResponse.lastIndexOf("}") + 1;
+                String jsonPart = cleanResponse.substring(start, end);
 
                 String explanation = extractJsonValue(jsonPart, "explanation");
                 String advice = extractJsonValue(jsonPart, "productAdvice");
                 String tips = extractJsonValue(jsonPart, "tips");
 
                 return AIExplanationResponse.builder()
-                        .explanation(explanation)
+                        .explanation(explanation.isEmpty() ? geminiResponse : explanation)
                         .productName(product.getProduct().getProductName())
-                        .productAdvice(advice)
-                        .tips(tips)
+                        .productAdvice(advice.isEmpty() ? "Voir l'analyse." : advice)
+                        .tips(tips.isEmpty() ? "Verifiez les valeurs nutritionnelles." : tips)
                         .isProductAnalysis(true)
                         .build();
             }
         } catch (Exception e) {
-            log.warn("Erreur lors du parsing de la réponse produit", e);
+            log.warn("Erreur lors du parsing de la reponse produit", e);
         }
 
         return AIExplanationResponse.builder()
                 .explanation(geminiResponse)
                 .productName(product.getProduct().getProductName())
-                .productAdvice("Voir l'analyse complète.")
+                .productAdvice("Voir l'analyse complete.")
                 .isProductAnalysis(true)
                 .build();
     }
@@ -249,59 +309,53 @@ public class AIService {
 
     private AIExplanationResponse buildFallbackDailyResponse(DailySummaryResponse summary, GoalsResponse goals) {
         StringBuilder explanation = new StringBuilder();
+        double caloriePercent = (summary.getTotalCalories() / goals.getTargetCalories()) * 100;
 
-        double calorieRatio = summary.getTotalCalories() / goals.getTargetCalories();
-        double proteinRatio = summary.getTotalProtein() / goals.getProteinGr();
-
-        if (calorieRatio >= 0.95 && calorieRatio <= 1.05) {
-            explanation.append("Excellent ! Vos calories sont parfaitement alignées avec votre objectif. ");
-        } else if (calorieRatio < 0.95) {
-            explanation.append("Vous êtes légèrement en-dessous de votre objectif calorique. ");
+        if (caloriePercent < 80) {
+            explanation.append("Vous n'avez pas atteint votre objectif calorique aujourd'hui (")
+                    .append(String.format("%.0f%%", caloriePercent))
+                    .append("). ");
+        } else if (caloriePercent > 110) {
+            explanation.append("Vous avez depasse votre objectif calorique (")
+                    .append(String.format("%.0f%%", caloriePercent))
+                    .append("). ");
         } else {
-            explanation.append("Vous avez dépassé votre objectif calorique aujourd'hui. ");
+            explanation.append("Excellent! Vous etes dans votre objectif calorique. ");
         }
 
-        if (proteinRatio >= 0.9 && proteinRatio <= 1.1) {
-            explanation.append("Vos protéines sont bien distribuées. ");
-        }
+        String tips = "Essayez d'equilibrer vos macronutriments pour de meilleurs resultats.";
+        String insight = String.format("Calories: %.0f/%.0f | Proteines: %.0fg | Glucides: %.0fg | Lipides: %.0fg",
+                summary.getTotalCalories(), goals.getTargetCalories(),
+                summary.getTotalProtein(), summary.getTotalCarbs(), summary.getTotalFat());
 
         return AIExplanationResponse.builder()
                 .explanation(explanation.toString())
-                .tips("Continuez à suivre vos repas régulièrement pour des meilleurs résultats.")
-                .nutritionInsight("La constance est la clé du succès nutritionnel.")
+                .tips(tips)
+                .nutritionInsight(insight)
                 .isProductAnalysis(false)
                 .build();
     }
 
     private AIExplanationResponse buildFallbackProductResponse(OffProductResponse product) {
-        StringBuilder advice = new StringBuilder();
         OffProductResponse.OffProduct prod = product.getProduct();
+        String name = prod.getProductName() != null ? prod.getProductName() : "Produit";
+        String nutriscore = prod.getNutritionGrades() != null ? prod.getNutritionGrades().toUpperCase() : "N/A";
 
-        Double calories = extractCaloriesFromNutriments(prod.getNutriments());
-        if (calories != null) {
-            if (calories > 300) {
-                advice.append("Ce produit est assez calorique. À consommer avec modération. ");
-            } else if (calories < 50) {
-                advice.append("Ce produit est très léger, bon pour les collations. ");
-            }
-        }
-
-        if (prod.getNutritionGrades() != null) {
-            if (prod.getNutritionGrades().equalsIgnoreCase("A")) {
-                advice.append("Excellent score nutritionnel (A).");
-            } else if (prod.getNutritionGrades().equalsIgnoreCase("E")) {
-                advice.append("À éviter régulièrement, score nutritionnel faible.");
-            }
+        String explanation;
+        if ("A".equals(nutriscore) || "B".equals(nutriscore)) {
+            explanation = String.format("%s a un bon NutriScore (%s). C'est un choix sain!", name, nutriscore);
+        } else if ("D".equals(nutriscore) || "E".equals(nutriscore)) {
+            explanation = String.format("%s a un NutriScore %s. A consommer avec moderation.", name, nutriscore);
+        } else {
+            explanation = String.format("Analyse de %s. NutriScore: %s", name, nutriscore);
         }
 
         return AIExplanationResponse.builder()
-                .explanation("Analyse du produit disponible ci-dessous.")
-                .productName(prod.getProductName())
-                .productAdvice(advice.toString())
+                .explanation(explanation)
+                .productName(name)
+                .productAdvice("Verifiez les informations nutritionnelles sur l'emballage.")
+                .tips("Comparez avec des produits similaires pour faire le meilleur choix.")
                 .isProductAnalysis(true)
-                .tips("Intégrez ce produit à votre alimentation de manière réfléchie.")
                 .build();
     }
 }
-
-

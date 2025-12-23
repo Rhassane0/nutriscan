@@ -2,87 +2,173 @@ package com.nutriscan.service;
 
 import com.nutriscan.dto.request.VisionAnalysisRequest;
 import com.nutriscan.dto.response.VisionAnalysisResponse;
-import com.nutriscan.model.Food;
-import com.nutriscan.repository.FoodRepository;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.lang.Nullable;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.client.RestTemplate;
 
-import java.lang.reflect.Method;
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 @Slf4j
 @Transactional
 public class VisionService {
 
-    private final FoodRepository foodRepository;
-    private final Object generativeModel;
+    private final RestTemplate restTemplate;
 
-    public VisionService(FoodRepository foodRepository, @Qualifier("generativeModel") @Nullable Object generativeModel) {
-        this.foodRepository = foodRepository;
-        this.generativeModel = generativeModel;
+    @Value("${gemini.api.key:}")
+    private String geminiApiKey;
+
+    @Value("${gemini.model:gemma-3-27b-it}")
+    private String modelName;
+
+    public VisionService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
     }
 
     /**
      * Analyse une photo de repas avec Gemini Vision et détecte les aliments
      */
     public VisionAnalysisResponse analyzeImage(VisionAnalysisRequest request) {
-        log.info("Analyzing image with Gemini Vision: {}", request.getImageUrl());
+        log.info("Analyzing meal image with Gemini Vision");
+
+        // Vérifier si une clé API Gemini valide est configurée
+        if (geminiApiKey == null || geminiApiKey.isEmpty() || geminiApiKey.equals("your-gemini-api-key-here")) {
+            log.warn("⚠️ Gemini API key not configured!");
+            log.warn("Pour activer l'analyse d'images par IA:");
+            log.warn("1. Obtenez une clé gratuite sur: https://aistudio.google.com/app/apikey");
+            log.warn("2. Ajoutez-la dans application.properties: gemini.api.key=VOTRE_CLE");
+            return buildFallbackWithInstructions();
+        }
 
         try {
-            if (generativeModel == null) {
-                log.warn("Gemini not configured, using fallback response");
-                return buildFallbackResponse();
+            String imageData = request.getImageUrl();
+            // Extraire le base64 si c'est un data URL
+            if (imageData != null && imageData.contains("base64,")) {
+                imageData = imageData.split("base64,")[1];
+            }
+
+            if (imageData == null || imageData.isEmpty()) {
+                log.error("No image data provided");
+                return buildFallbackWithInstructions();
             }
 
             String prompt = buildVisionPrompt(request.getMealType());
-            String geminiResponse = callGeminiVision(request.getImageUrl(), prompt);
+            String geminiResponse = callGeminiVisionAPI(imageData, prompt);
+
+            if (geminiResponse == null || geminiResponse.isEmpty()) {
+                log.warn("Empty response from Gemini");
+                return buildFallbackWithInstructions();
+            }
+
+            log.info("Gemini response: {}", geminiResponse);
 
             List<VisionAnalysisResponse.DetectedFood> detectedFoods = parseGeminiVisionResponse(geminiResponse);
 
-            double averageConfidence = detectedFoods.isEmpty() ? 0 :
-                    detectedFoods.stream().mapToDouble(VisionAnalysisResponse.DetectedFood::getConfidence).average().orElse(0);
+            if (detectedFoods.isEmpty()) {
+                log.warn("No foods detected from Gemini response");
+                return buildFallbackWithInstructions();
+            }
 
-            VisionAnalysisResponse response = VisionAnalysisResponse.builder()
+            double averageConfidence = detectedFoods.stream()
+                    .mapToDouble(VisionAnalysisResponse.DetectedFood::getConfidence)
+                    .average().orElse(0);
+
+            return VisionAnalysisResponse.builder()
                     .detectedFoods(detectedFoods)
-                    .analysisText(geminiResponse)
+                    .analysisText(cleanAnalysisText(geminiResponse))
                     .confidenceScore(averageConfidence)
                     .build();
 
-            return response;
         } catch (Exception e) {
-            log.error("Erreur lors de l'analyse d'image avec Gemini", e);
-            return buildFallbackResponse();
+            log.error("Error analyzing image with Gemini: {}", e.getMessage(), e);
+            return buildFallbackWithInstructions();
         }
     }
 
     /**
-     * Appelle Gemini Vision pour analyser l'image (via réflexion)
+     * Appelle l'API REST de Gemini Vision
      */
-    private String callGeminiVision(String imageUrl, String prompt) {
+    private String callGeminiVisionAPI(String base64Image, String prompt) {
         try {
-            if (generativeModel == null) {
-                throw new RuntimeException("Gemini model not available");
+            String url = "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":generateContent?key=" + geminiApiKey;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+
+            // Construire le body avec l'image inline
+            Map<String, Object> requestBody = new HashMap<>();
+            List<Map<String, Object>> contents = new ArrayList<>();
+            Map<String, Object> content = new HashMap<>();
+            List<Map<String, Object>> parts = new ArrayList<>();
+
+            // Partie texte (prompt)
+            Map<String, Object> textPart = new HashMap<>();
+            textPart.put("text", prompt);
+            parts.add(textPart);
+
+            // Partie image
+            Map<String, Object> imagePart = new HashMap<>();
+            Map<String, Object> inlineData = new HashMap<>();
+            inlineData.put("mimeType", "image/jpeg");
+            inlineData.put("data", base64Image);
+            imagePart.put("inlineData", inlineData);
+            parts.add(imagePart);
+
+            content.put("parts", parts);
+            contents.add(content);
+            requestBody.put("contents", contents);
+
+            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+
+            log.info("🚀 Calling Gemini Vision API with model: {}", modelName);
+            log.info("📍 API URL: https://generativelanguage.googleapis.com/v1beta/models/{}", modelName);
+
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
+
+            log.info("📥 Gemini response status: {}", response.getStatusCode());
+
+            if (response.getBody() != null) {
+                // Vérifier les erreurs
+                if (response.getBody().containsKey("error")) {
+                    Map<String, Object> error = (Map<String, Object>) response.getBody().get("error");
+                    log.error("❌ Gemini API error: {}", error);
+                    log.error("❌ Error code: {}, message: {}", error.get("code"), error.get("message"));
+                    return null;
+                }
+
+                List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.getBody().get("candidates");
+                if (candidates != null && !candidates.isEmpty()) {
+                    Map<String, Object> candidate = candidates.get(0);
+                    Map<String, Object> contentResp = (Map<String, Object>) candidate.get("content");
+                    if (contentResp != null) {
+                        List<Map<String, Object>> partsResp = (List<Map<String, Object>>) contentResp.get("parts");
+                        if (partsResp != null && !partsResp.isEmpty()) {
+                            String text = (String) partsResp.get(0).get("text");
+                            log.info("✅ Gemini Vision response received ({} chars)", text.length());
+                            return text;
+                        }
+                    }
+                }
+
+                log.warn("⚠️ No candidates in response. Full response: {}", response.getBody());
             }
 
-            log.debug("Calling Gemini Vision with prompt");
-
-            Method generateContentMethod = generativeModel.getClass()
-                    .getMethod("generateContent", String.class);
-            Object response = generateContentMethod.invoke(generativeModel, prompt);
-
-            Method getTextMethod = response.getClass().getMethod("getText");
-            String result = (String) getTextMethod.invoke(response);
-
-            log.debug("Gemini Vision response received");
-            return result;
+            log.warn("⚠️ No valid response from Gemini API");
+            return null;
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            log.error("❌ HTTP Client Error calling Gemini API: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return null;
+        } catch (org.springframework.web.client.HttpServerErrorException e) {
+            log.error("❌ HTTP Server Error calling Gemini API: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return null;
         } catch (Exception e) {
-            log.error("Erreur lors de l'appel à Gemini Vision: {}", e.getMessage());
-            throw new RuntimeException("Impossible de contacter le service de vision IA", e);
+            log.error("❌ Error calling Gemini Vision API: {} - {}", e.getClass().getSimpleName(), e.getMessage());
+            return null;
         }
     }
 
@@ -90,19 +176,19 @@ public class VisionService {
      * Construit le prompt pour l'analyse de vision
      */
     private String buildVisionPrompt(String mealType) {
-        String mealInfo = mealType != null ? " pour un repas de type " + mealType : "";
+        String mealInfo = mealType != null ? " (type de repas: " + mealType + ")" : "";
 
-        return String.format(
-                "Analyse cette image de repas%s et identifie tous les aliments visibles.\n\n" +
-                "Pour chaque aliment détecté:\n" +
-                "1. Nom de l'aliment en français\n" +
-                "2. Confiance en pourcentage (0-100)\n" +
-                "3. Quantité estimée en grammes\n\n" +
-                "Réponds au format JSON avec un tableau 'foods' contenant des objets:\n" +
-                "{\"foods\": [{\"name\": \"...\", \"confidence\": XX, \"quantity\": YY}, ...]}\n\n" +
-                "Sois précis et réaliste dans tes estimations.",
-                mealInfo
-        );
+        return "Tu es un expert nutritionniste. Analyse cette photo de repas" + mealInfo + " et identifie TOUS les aliments visibles.\n\n" +
+                "Pour CHAQUE aliment que tu vois, donne:\n" +
+                "- name: nom de l'aliment en français\n" +
+                "- quantity: quantité estimée en grammes\n" +
+                "- calories: calories estimées pour cette portion\n" +
+                "- proteins: protéines en grammes\n" +
+                "- carbs: glucides en grammes\n" +
+                "- fats: lipides en grammes\n\n" +
+                "IMPORTANT: Réponds UNIQUEMENT avec un JSON valide, sans texte avant ou après, sans ```:\n" +
+                "{\"foods\": [{\"name\": \"...\", \"quantity\": 100, \"calories\": 150, \"proteins\": 10, \"carbs\": 20, \"fats\": 5}]}\n\n" +
+                "Sois précis et réaliste. Analyse bien l'image.";
     }
 
     /**
@@ -112,133 +198,129 @@ public class VisionService {
         List<VisionAnalysisResponse.DetectedFood> detectedFoods = new ArrayList<>();
 
         try {
-            if (geminiResponse.contains("\"foods\"")) {
-                String foodsArray = extractJsonArray(geminiResponse, "foods");
-                String[] foodItems = foodsArray.split("},");
+            // Nettoyer la réponse (enlever markdown si présent)
+            String cleanResponse = geminiResponse
+                    .replaceAll("```json\\s*", "")
+                    .replaceAll("```\\s*", "")
+                    .replaceAll("```", "")
+                    .trim();
 
-                for (String item : foodItems) {
-                    String name = extractJsonValue(item, "name");
-                    String confidenceStr = extractJsonValue(item, "confidence");
-                    String quantityStr = extractJsonValue(item, "quantity");
+            log.debug("Cleaned response: {}", cleanResponse);
+
+            // Trouver le JSON dans la réponse
+            int jsonStart = cleanResponse.indexOf("{");
+            int jsonEnd = cleanResponse.lastIndexOf("}");
+
+            if (jsonStart >= 0 && jsonEnd > jsonStart) {
+                cleanResponse = cleanResponse.substring(jsonStart, jsonEnd + 1);
+            }
+
+            // Extraire le tableau foods
+            Pattern foodsPattern = Pattern.compile("\"foods\"\\s*:\\s*\\[(.*?)\\]", Pattern.DOTALL);
+            Matcher foodsMatcher = foodsPattern.matcher(cleanResponse);
+
+            if (foodsMatcher.find()) {
+                String foodsArray = foodsMatcher.group(1);
+                log.debug("Foods array: {}", foodsArray);
+
+                // Parser chaque aliment avec une regex plus robuste
+                Pattern foodPattern = Pattern.compile("\\{[^{}]*\\}");
+                Matcher foodMatcher = foodPattern.matcher(foodsArray);
+
+                while (foodMatcher.find()) {
+                    String foodJson = foodMatcher.group();
+                    log.debug("Parsing food: {}", foodJson);
+
+                    String name = extractJsonStringValue(foodJson, "name");
+                    double quantity = extractJsonNumberValue(foodJson, "quantity", 100);
+                    double calories = extractJsonNumberValue(foodJson, "calories", 0);
+                    double proteins = extractJsonNumberValue(foodJson, "proteins", 0);
+                    double carbs = extractJsonNumberValue(foodJson, "carbs", 0);
+                    double fats = extractJsonNumberValue(foodJson, "fats", 0);
 
                     if (!name.isEmpty()) {
-                        double confidence = Double.parseDouble(confidenceStr.isEmpty() ? "50" : confidenceStr);
-                        double quantity = Double.parseDouble(quantityStr.isEmpty() ? "100" : quantityStr);
-
-                        VisionAnalysisResponse.DetectedFood detected = matchFoodToDatabase(name);
-                        detected.setConfidence(confidence);
-                        detected.setEstimatedQuantityGrams(quantity);
+                        VisionAnalysisResponse.DetectedFood detected = VisionAnalysisResponse.DetectedFood.builder()
+                                .name(name)
+                                .confidence(85.0)
+                                .estimatedQuantityGrams(quantity)
+                                .estimatedCalories(calories)
+                                .estimatedProteins(proteins)
+                                .estimatedCarbs(carbs)
+                                .estimatedFats(fats)
+                                .matchStatus("AI_DETECTED")
+                                .candidates(new ArrayList<>())
+                                .build();
 
                         detectedFoods.add(detected);
+                        log.info("✅ Detected: {} - {}g, {}kcal, P:{}g, C:{}g, F:{}g",
+                                name, quantity, calories, proteins, carbs, fats);
                     }
                 }
+            } else {
+                log.warn("Could not find 'foods' array in response");
             }
         } catch (Exception e) {
-            log.warn("Erreur lors du parsing de la vision Gemini", e);
+            log.error("Error parsing Gemini response: {}", e.getMessage(), e);
         }
 
         return detectedFoods;
     }
 
-    /**
-     * Recherche les aliments correspondants dans la base
-     */
-    private VisionAnalysisResponse.DetectedFood matchFoodToDatabase(String detectedFoodName) {
-        List<Food> allFoods = foodRepository.findAll();
-
-        List<Food> matches = allFoods.stream()
-                .filter(f -> f.getName().toLowerCase().contains(detectedFoodName.toLowerCase()))
-                .collect(Collectors.toList());
-
-        if (!matches.isEmpty()) {
-            Food bestMatch = matches.get(0);
-            return VisionAnalysisResponse.DetectedFood.builder()
-                    .name(bestMatch.getName())
-                    .confidence(85.0)
-                    .suggestedFoodId(bestMatch.getId())
-                    .matchStatus("AUTO_MATCHED")
-                    .build();
-        } else {
-            List<VisionAnalysisResponse.FoodCandidate> candidates = allFoods.stream()
-                    .limit(5)
-                    .map(f -> VisionAnalysisResponse.FoodCandidate.builder()
-                            .foodId(f.getId())
-                            .name(f.getName())
-                            .matchScore(50.0)
-                            .build())
-                    .collect(Collectors.toList());
-
-            return VisionAnalysisResponse.DetectedFood.builder()
-                    .name(detectedFoodName)
-                    .confidence(45.0)
-                    .matchStatus("CANDIDATES")
-                    .candidates(candidates)
-                    .build();
+    private String extractJsonStringValue(String json, String key) {
+        // Essayer avec guillemets doubles
+        Pattern pattern = Pattern.compile("\"" + key + "\"\\s*:\\s*\"([^\"]+)\"");
+        Matcher matcher = pattern.matcher(json);
+        if (matcher.find()) {
+            return matcher.group(1);
         }
+        // Essayer avec guillemets simples
+        pattern = Pattern.compile("\"" + key + "\"\\s*:\\s*'([^']+)'");
+        matcher = pattern.matcher(json);
+        return matcher.find() ? matcher.group(1) : "";
     }
 
-    /**
-     * Extrait un tableau JSON
-     */
-    private String extractJsonArray(String json, String key) {
-        String searchKey = "\"" + key + "\"";
-        int startIdx = json.indexOf(searchKey);
-        if (startIdx == -1) return "[]";
-
-        int bracketIdx = json.indexOf("[", startIdx);
-        int closeBracketIdx = json.indexOf("]", bracketIdx);
-
-        if (closeBracketIdx > bracketIdx) {
-            return json.substring(bracketIdx + 1, closeBracketIdx);
-        }
-        return "[]";
-    }
-
-    /**
-     * Extrait une valeur JSON
-     */
-    private String extractJsonValue(String json, String key) {
-        String searchKey = "\"" + key + "\"";
-        int startIdx = json.indexOf(searchKey);
-        if (startIdx == -1) return "";
-
-        int colonIdx = json.indexOf(":", startIdx);
-        int quoteIdx = json.indexOf("\"", colonIdx);
-
-        if (quoteIdx == colonIdx + 1) {
-            int endIdx = json.indexOf("\"", quoteIdx + 1);
-            if (endIdx > quoteIdx) {
-                return json.substring(quoteIdx + 1, endIdx);
+    private double extractJsonNumberValue(String json, String key, double defaultValue) {
+        Pattern pattern = Pattern.compile("\"" + key + "\"\\s*:\\s*([\\d.]+)");
+        Matcher matcher = pattern.matcher(json);
+        if (matcher.find()) {
+            try {
+                return Double.parseDouble(matcher.group(1));
+            } catch (NumberFormatException e) {
+                return defaultValue;
             }
         }
+        return defaultValue;
+    }
 
-        int commaIdx = json.indexOf(",", colonIdx);
-        int braceIdx = json.indexOf("}", colonIdx);
-        int endIdx = Math.min(commaIdx == -1 ? braceIdx : commaIdx, braceIdx);
+    private String cleanAnalysisText(String geminiResponse) {
+        // Nettoyer pour extraire un texte lisible
+        String clean = geminiResponse
+                .replaceAll("```json\\s*", "")
+                .replaceAll("```\\s*", "")
+                .replaceAll("\\{.*\\}", "")
+                .trim();
 
-        if (endIdx > colonIdx) {
-            String value = json.substring(colonIdx + 1, endIdx).trim();
-            return value.replace("\"", "");
+        if (clean.isEmpty()) {
+            return "Analyse effectuée avec succès par l'IA.";
         }
-
-        return "";
+        return clean.length() > 500 ? clean.substring(0, 500) + "..." : clean;
     }
 
     /**
-     * Réponse fallback si Gemini fail
+     * Réponse fallback avec instructions pour configurer Gemini - sans données de démonstration
      */
-    private VisionAnalysisResponse buildFallbackResponse() {
+    private VisionAnalysisResponse buildFallbackWithInstructions() {
+        // Message explicatif pour l'utilisateur
+        String message = "⚠️ L'analyse d'image par IA n'est pas configurée.\n\n" +
+                "Pour activer cette fonctionnalité:\n" +
+                "1. Obtenez une clé API Gemini gratuite sur aistudio.google.com\n" +
+                "2. Configurez-la dans le backend (application.properties: gemini.api.key=VOTRE_CLE)\n\n" +
+                "Veuillez configurer l'API pour utiliser cette fonctionnalité.";
+
         return VisionAnalysisResponse.builder()
                 .detectedFoods(new ArrayList<>())
-                .analysisText("Analyse d'image en cours de développement. Veuillez saisir manuellement vos aliments pour l'instant.")
+                .analysisText(message)
                 .confidenceScore(0.0)
                 .build();
-    }
-
-    /**
-     * Crée un repas à partir du résultat de l'analyse de vision
-     */
-    public void createMealFromVisionAnalysis(Long userId, VisionAnalysisResponse analysis, String mealType) {
-        log.info("Creating meal from vision analysis for user: {}", userId);
     }
 }

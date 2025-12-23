@@ -4,6 +4,8 @@ import '../../config/theme.dart';
 import '../../providers/planner_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/locale_provider.dart';
+import '../../services/user_service.dart';
+import '../../services/goals_service.dart';
 import '../../utils/date_formatter.dart';
 
 class GeneratePlanScreen extends StatefulWidget {
@@ -17,83 +19,125 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
   DateTime _startDate = DateTime.now();
   DateTime _endDate = DateTime.now().add(const Duration(days: 6));
   String _selectedDietType = 'balanced';
-  final Set<String> _selectedHealthLabels = {};
+  final Set<String> _selectedPreferences = {};
   final Set<String> _selectedAllergies = {};
   int _caloriesPerDay = 2000;
-  int _mealsPerDay = 3;
+  bool _isLoadingPreferences = true;
 
-  Map<String, Map<String, String>> _getDietTypes(bool isFrench) => {
-    'balanced': {'emoji': '⚖️', 'label': isFrench ? 'Équilibré' : 'Balanced', 'desc': isFrench ? 'Répartition équilibrée des nutriments' : 'Balanced nutrient distribution'},
-    'low-carb': {'emoji': '🥩', 'label': isFrench ? 'Faible en glucides' : 'Low Carb', 'desc': isFrench ? 'Moins de glucides, plus de protéines' : 'Less carbs, more protein'},
-    'high-protein': {'emoji': '💪', 'label': isFrench ? 'Riche en protéines' : 'High Protein', 'desc': isFrench ? 'Pour développer les muscles' : 'For muscle building'},
-    'low-fat': {'emoji': '🥗', 'label': isFrench ? 'Faible en gras' : 'Low Fat', 'desc': isFrench ? 'Réduire les matières grasses' : 'Reduce fat intake'},
-    'high-fiber': {'emoji': '🌾', 'label': isFrench ? 'Riche en fibres' : 'High Fiber', 'desc': isFrench ? 'Pour une meilleure digestion' : 'For better digestion'},
+  // Recherche
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  // Toutes les options
+  final Map<String, Map<String, String>> _allPreferences = {
+    'vegetarian': {'emoji': '🥬', 'label': 'Végétarien'},
+    'vegan': {'emoji': '🌱', 'label': 'Végan'},
+    'gluten-free': {'emoji': '🌾', 'label': 'Sans gluten'},
+    'dairy-free': {'emoji': '🥛', 'label': 'Sans lactose'},
+    'keto': {'emoji': '🥑', 'label': 'Keto'},
+    'paleo': {'emoji': '🦴', 'label': 'Paléo'},
+    'halal': {'emoji': '☪️', 'label': 'Halal'},
+    'kosher': {'emoji': '✡️', 'label': 'Casher'},
+    'low-carb': {'emoji': '🥩', 'label': 'Faible en glucides'},
+    'high-protein': {'emoji': '💪', 'label': 'Riche en protéines'},
+    'low-fat': {'emoji': '🥗', 'label': 'Faible en gras'},
+    'mediterranean': {'emoji': '🫒', 'label': 'Méditerranéen'},
   };
 
-  Map<String, Map<String, String>> _getHealthLabels(bool isFrench) => {
-    'vegetarian': {'emoji': '🥬', 'label': isFrench ? 'Végétarien' : 'Vegetarian'},
-    'vegan': {'emoji': '🌱', 'label': isFrench ? 'Végan' : 'Vegan'},
-    'gluten-free': {'emoji': '🌾', 'label': isFrench ? 'Sans gluten' : 'Gluten Free'},
-    'dairy-free': {'emoji': '🥛', 'label': isFrench ? 'Sans lactose' : 'Dairy Free'},
-    'keto-friendly': {'emoji': '🥑', 'label': 'Keto'},
-    'paleo': {'emoji': '🦴', 'label': isFrench ? 'Paléo' : 'Paleo'},
+  final Map<String, Map<String, String>> _allAllergies = {
+    'peanuts': {'emoji': '🥜', 'label': 'Arachides'},
+    'tree-nuts': {'emoji': '🌰', 'label': 'Fruits à coque'},
+    'milk': {'emoji': '🥛', 'label': 'Lait'},
+    'eggs': {'emoji': '🥚', 'label': 'Œufs'},
+    'soy': {'emoji': '🫘', 'label': 'Soja'},
+    'wheat': {'emoji': '🌾', 'label': 'Blé'},
+    'fish': {'emoji': '🐟', 'label': 'Poisson'},
+    'shellfish': {'emoji': '🦐', 'label': 'Crustacés'},
+    'sesame': {'emoji': '⚪', 'label': 'Sésame'},
+    'pork': {'emoji': '🐷', 'label': 'Porc'},
+    'beef': {'emoji': '🐄', 'label': 'Bœuf'},
   };
 
-  Map<String, Map<String, String>> _getAllergies(bool isFrench) => {
-    'peanuts': {'emoji': '🥜', 'label': isFrench ? 'Arachides' : 'Peanuts'},
-    'tree-nuts': {'emoji': '🌰', 'label': isFrench ? 'Fruits à coque' : 'Tree Nuts'},
-    'milk': {'emoji': '🥛', 'label': isFrench ? 'Lait' : 'Milk'},
-    'eggs': {'emoji': '🥚', 'label': isFrench ? 'Œufs' : 'Eggs'},
-    'soy': {'emoji': '🫘', 'label': isFrench ? 'Soja' : 'Soy'},
-    'wheat': {'emoji': '🌾', 'label': isFrench ? 'Blé' : 'Wheat'},
-    'fish': {'emoji': '🐟', 'label': isFrench ? 'Poisson' : 'Fish'},
-    'shellfish': {'emoji': '🦐', 'label': isFrench ? 'Crustacés' : 'Shellfish'},
+  final Map<String, Map<String, String>> _dietTypes = {
+    'balanced': {'emoji': '⚖️', 'label': 'Équilibré'},
+    'low-carb': {'emoji': '🥩', 'label': 'Low Carb'},
+    'high-protein': {'emoji': '💪', 'label': 'Protéiné'},
+    'low-fat': {'emoji': '🥗', 'label': 'Low Fat'},
   };
 
-  Future<void> _selectStartDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _startDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-
-    if (picked != null) {
-      setState(() {
-        _startDate = picked;
-        if (_endDate.isBefore(_startDate)) {
-          _endDate = _startDate.add(const Duration(days: 6));
-        }
-      });
-    }
+  @override
+  void initState() {
+    super.initState();
+    _loadUserPreferences();
   }
 
-  Future<void> _selectEndDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _endDate,
-      firstDate: _startDate,
-      lastDate: _startDate.add(const Duration(days: 30)),
-    );
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
-    if (picked != null) {
-      setState(() {
-        _endDate = picked;
-      });
+  Future<void> _loadUserPreferences() async {
+    try {
+      final userService = context.read<UserService>();
+      final goalsService = context.read<GoalsService>();
+
+      final profile = await userService.getProfile();
+
+      Map<String, dynamic>? goals;
+      try {
+        goals = await goalsService.getGoals();
+      } catch (e) {
+        // Ignorer
+      }
+
+      if (mounted) {
+        setState(() {
+          if (profile['dietPreferences'] != null && profile['dietPreferences'] is String) {
+            final prefs = (profile['dietPreferences'] as String)
+                .split(',')
+                .map((e) => e.trim().toLowerCase())
+                .where((e) => e.isNotEmpty);
+            _selectedPreferences.addAll(prefs);
+          }
+
+          if (profile['allergies'] != null && profile['allergies'] is String) {
+            final algs = (profile['allergies'] as String)
+                .split(',')
+                .map((e) => e.trim().toLowerCase())
+                .where((e) => e.isNotEmpty);
+            _selectedAllergies.addAll(algs);
+          }
+
+          if (goals != null && goals['targetCalories'] != null) {
+            _caloriesPerDay = (goals['targetCalories'] as num).toInt();
+          }
+
+          _isLoadingPreferences = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingPreferences = false);
+      }
     }
   }
 
   Future<void> _generatePlan() async {
     final isFrench = context.read<LocaleProvider>().isFrench;
 
+    final List<String> healthPreferences = [
+      _selectedDietType,
+      ..._selectedPreferences,
+    ];
+
     final requestData = {
       'startDate': DateFormatter.formatForApi(_startDate),
       'endDate': DateFormatter.formatForApi(_endDate),
-      'dietType': _selectedDietType,
-      'healthLabels': _selectedHealthLabels.toList(),
-      'allergies': _selectedAllergies.toList(),
-      'caloriesPerDay': _caloriesPerDay,
-      'mealsPerDay': _mealsPerDay,
+      'planType': 'WEEKLY',
+      'targetCalories': _caloriesPerDay,
+      'healthPreferences': healthPreferences,
+      'excludedIngredients': _selectedAllergies.toList(),
     };
 
     final provider = context.read<PlannerProvider>();
@@ -113,6 +157,7 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
           ),
           backgroundColor: AppTheme.successGreen,
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
       Navigator.of(context).pop(true);
@@ -128,6 +173,7 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
           ),
           backgroundColor: AppTheme.errorRed,
           behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -135,516 +181,721 @@ class _GeneratePlanScreenState extends State<GeneratePlanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final days = _endDate.difference(_startDate).inDays + 1;
     final themeProvider = context.watch<ThemeProvider>();
     final isDark = themeProvider.isDarkMode;
-    final isFrench = context.watch<LocaleProvider>().isFrench;
-
-    final dietTypes = _getDietTypes(isFrench);
-    final healthLabels = _getHealthLabels(isFrench);
-    final allergies = _getAllergies(isFrench);
+    final days = _endDate.difference(_startDate).inDays + 1;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isFrench ? 'Générer un Plan' : 'Generate a Plan'),
-        backgroundColor: AppTheme.primaryGreen,
-        foregroundColor: Colors.white,
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: isDark ? AppTheme.darkGradient : null,
-          color: isDark ? null : AppTheme.backgroundLight,
-        ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Résumé en haut
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [AppTheme.primaryGreen, AppTheme.primaryGreenDark],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Row(
-                  children: [
-                    const Text('📅', style: TextStyle(fontSize: 32)),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            isFrench ? 'Votre plan repas' : 'Your meal plan',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          Text(
-                            isFrench
-                              ? '$days jours • $_mealsPerDay repas/jour • $_caloriesPerDay kcal/jour'
-                              : '$days days • $_mealsPerDay meals/day • $_caloriesPerDay kcal/day',
-                            style: const TextStyle(color: Colors.white70, fontSize: 14),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.backgroundLight,
+      body: _isLoadingPreferences
+          ? const Center(child: CircularProgressIndicator(color: AppTheme.primaryGreen))
+          : Container(
+              decoration: BoxDecoration(
+                gradient: isDark ? AppTheme.darkGradient : null,
               ),
-              const SizedBox(height: 24),
-
-              // Période
-              _buildSectionHeader(
-                '📆 ${isFrench ? 'Période' : 'Period'}',
-                isFrench ? 'Définissez la durée de votre plan' : 'Set the duration of your plan',
-                isDark
-              ),
-              Card(
-                elevation: isDark ? 0 : 2,
-                color: isDark ? AppTheme.darkSurface : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
-                ),
+              child: SafeArea(
                 child: Column(
                   children: [
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryGreen.withAlpha(isDark ? 50 : 30),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.play_arrow, color: AppTheme.primaryGreen),
-                      ),
-                      title: Text(
-                        isFrench ? 'Date de début' : 'Start date',
-                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark),
-                      ),
-                      subtitle: Text(
-                        DateFormatter.formatForDisplay(_startDate),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
-                        ),
-                      ),
-                      trailing: Icon(Icons.chevron_right, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
-                      onTap: _selectStartDate,
-                    ),
-                    Divider(height: 1, color: isDark ? AppTheme.darkDivider : Colors.grey[200]),
-                    ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppTheme.secondaryOrange.withAlpha(isDark ? 50 : 30),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Icon(Icons.stop, color: AppTheme.secondaryOrange),
-                      ),
-                      title: Text(
-                        isFrench ? 'Date de fin' : 'End date',
-                        style: TextStyle(color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark),
-                      ),
-                      subtitle: Text(
-                        DateFormatter.formatForDisplay(_endDate),
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
+                    _buildHeader(isDark),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        physics: const BouncingScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSummaryCard(days, isDark),
+                            const SizedBox(height: 20),
+                            _buildDateSection(isDark),
+                            const SizedBox(height: 20),
+                            _buildDietTypeSection(isDark),
+                            const SizedBox(height: 20),
+                            _buildCaloriesSection(isDark),
+                            const SizedBox(height: 20),
+                            _buildSearchablePreferencesSection(isDark),
+                            const SizedBox(height: 100),
+                          ],
                         ),
                       ),
-                      trailing: Icon(Icons.chevron_right, color: isDark ? AppTheme.darkTextSecondary : Colors.grey),
-                      onTap: _selectEndDate,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
-
-              // Type de régime
-              _buildSectionHeader(
-                '🍽️ ${isFrench ? 'Type de régime' : 'Diet type'}',
-                isFrench ? 'Choisissez votre style d\'alimentation' : 'Choose your eating style',
-                isDark
-              ),
-              Card(
-                elevation: isDark ? 0 : 2,
-                color: isDark ? AppTheme.darkSurface : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: dietTypes.entries.map((entry) {
-                      final isSelected = _selectedDietType == entry.key;
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: InkWell(
-                          onTap: () => setState(() => _selectedDietType = entry.key),
-                          borderRadius: BorderRadius.circular(12),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 200),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? AppTheme.primaryGreen.withAlpha(isDark ? 50 : 30)
-                                  : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[50]),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: isSelected ? AppTheme.primaryGreen : (isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                                width: isSelected ? 2 : 1,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Text(entry.value['emoji']!, style: const TextStyle(fontSize: 24)),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        entry.value['label']!,
-                                        style: TextStyle(
-                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                          color: isSelected ? AppTheme.primaryGreen : (isDark ? AppTheme.darkTextPrimary : Colors.grey[800]),
-                                        ),
-                                      ),
-                                      Text(
-                                        entry.value['desc']!,
-                                        style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextTertiary : Colors.grey[600]),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (isSelected)
-                                  const Icon(Icons.check_circle, color: AppTheme.primaryGreen),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Préférences alimentaires
-              _buildSectionHeader(
-                '🥗 ${isFrench ? 'Préférences alimentaires' : 'Food preferences'}',
-                isFrench ? 'Sélectionnez vos restrictions' : 'Select your restrictions',
-                isDark
-              ),
-              Card(
-                elevation: isDark ? 0 : 2,
-                color: isDark ? AppTheme.darkSurface : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: healthLabels.entries.map((entry) {
-                      final isSelected = _selectedHealthLabels.contains(entry.key);
-                      return InkWell(
-                        onTap: () {
-                          setState(() {
-                            if (isSelected) {
-                              _selectedHealthLabels.remove(entry.key);
-                            } else {
-                              _selectedHealthLabels.add(entry.key);
-                            }
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.accentBlue.withAlpha(isDark ? 50 : 30)
-                                : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[100]),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected ? AppTheme.accentBlue : (isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(entry.value['emoji']!, style: const TextStyle(fontSize: 16)),
-                              const SizedBox(width: 6),
-                              Text(
-                                entry.value['label']!,
-                                style: TextStyle(
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? AppTheme.accentBlue : (isDark ? AppTheme.darkTextPrimary : Colors.grey[700]),
-                                ),
-                              ),
-                              if (isSelected) ...[
-                                const SizedBox(width: 4),
-                                const Icon(Icons.check, color: AppTheme.accentBlue, size: 16),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Allergies
-              _buildSectionHeader(
-                '⚠️ ${isFrench ? 'Allergies' : 'Allergies'}',
-                isFrench ? 'Exclure ces ingrédients' : 'Exclude these ingredients',
-                isDark
-              ),
-              Card(
-                elevation: isDark ? 0 : 2,
-                color: isDark ? AppTheme.darkSurface : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: allergies.entries.map((entry) {
-                      final isSelected = _selectedAllergies.contains(entry.key);
-                      return InkWell(
-                        onTap: () {
-                          setState(() {
-                            if (isSelected) {
-                              _selectedAllergies.remove(entry.key);
-                            } else {
-                              _selectedAllergies.add(entry.key);
-                            }
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(20),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.errorRed.withAlpha(isDark ? 50 : 30)
-                                : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[100]),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected ? AppTheme.errorRed : (isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                              width: isSelected ? 2 : 1,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(entry.value['emoji']!, style: const TextStyle(fontSize: 16)),
-                              const SizedBox(width: 6),
-                              Text(
-                                entry.value['label']!,
-                                style: TextStyle(
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isSelected ? AppTheme.errorRed : (isDark ? AppTheme.darkTextPrimary : Colors.grey[700]),
-                                ),
-                              ),
-                              if (isSelected) ...[
-                                const SizedBox(width: 4),
-                                const Icon(Icons.close, color: AppTheme.errorRed, size: 16),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Calories par jour
-              _buildSectionHeader(
-                '🔥 ${isFrench ? 'Calories par jour' : 'Calories per day'}',
-                isFrench ? 'Ajustez votre apport calorique' : 'Adjust your calorie intake',
-                isDark
-              ),
-              Card(
-                elevation: isDark ? 0 : 2,
-                color: isDark ? AppTheme.darkSurface : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            '$_caloriesPerDay',
-                            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: AppTheme.primaryGreen),
-                          ),
-                          Text(' kcal', style: TextStyle(fontSize: 18, color: isDark ? AppTheme.darkTextSecondary : Colors.grey)),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          activeTrackColor: AppTheme.primaryGreen,
-                          inactiveTrackColor: isDark ? AppTheme.darkBorder : AppTheme.primaryGreen.withAlpha(50),
-                          thumbColor: AppTheme.primaryGreen,
-                          overlayColor: AppTheme.primaryGreen.withAlpha(30),
-                        ),
-                        child: Slider(
-                          value: _caloriesPerDay.toDouble(),
-                          min: 1200,
-                          max: 3500,
-                          divisions: 23,
-                          onChanged: (value) {
-                            setState(() {
-                              _caloriesPerDay = value.toInt();
-                            });
-                          },
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('1200 kcal', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextTertiary : Colors.grey[600])),
-                          Text('3500 kcal', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.darkTextTertiary : Colors.grey[600])),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Repas par jour
-              _buildSectionHeader(
-                '🍴 ${isFrench ? 'Repas par jour' : 'Meals per day'}',
-                isFrench ? 'Nombre de repas quotidiens' : 'Number of daily meals',
-                isDark
-              ),
-              Card(
-                elevation: isDark ? 0 : 2,
-                color: isDark ? AppTheme.darkSurface : Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: isDark ? BorderSide(color: AppTheme.darkBorder) : BorderSide.none,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [1, 2, 3, 4, 5].map((n) {
-                      final isSelected = _mealsPerDay == n;
-                      return InkWell(
-                        onTap: () => setState(() => _mealsPerDay = n),
-                        borderRadius: BorderRadius.circular(12),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            color: isSelected ? AppTheme.primaryGreen : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[100]),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isSelected ? AppTheme.primaryGreen : (isDark ? AppTheme.darkBorder : Colors.grey[300]!),
-                              width: 2,
-                            ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '$n',
-                              style: TextStyle(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: isSelected ? Colors.white : (isDark ? AppTheme.darkTextPrimary : Colors.grey[700]),
-                              ),
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 32),
-
-              // Bouton générer
-              Consumer<PlannerProvider>(
-                builder: (context, provider, child) {
-                  return SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: provider.isLoading ? null : _generatePlan,
-                      icon: provider.isLoading
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.auto_awesome),
-                      label: Text(provider.isLoading
-                        ? (isFrench ? 'Génération en cours...' : 'Generating...')
-                        : (isFrench ? 'Générer mon plan repas' : 'Generate my meal plan')),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryGreen,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  );
-                },
-              ),
-              const SizedBox(height: 80),
-            ],
-          ),
-        ),
-      ),
+            ),
+      bottomNavigationBar: _buildBottomBar(isDark),
     );
   }
 
-  Widget _buildSectionHeader(String title, String subtitle, bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildHeader(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      child: Row(
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textDark,
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey[300]!),
+              ),
+              child: Icon(Icons.arrow_back_ios_new, size: 20, color: isDark ? Colors.white : AppTheme.textDark),
             ),
           ),
-          Text(
-            subtitle,
-            style: TextStyle(fontSize: 14, color: isDark ? AppTheme.darkTextTertiary : Colors.grey[600]),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Générer un',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : AppTheme.textDark,
+                  ),
+                ),
+                Text(
+                  'Plan Repas',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryGreen,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
+
+  Widget _buildSummaryCard(int days, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: AppTheme.primaryGlowGradient,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.primaryGreen.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Text('🍽️', style: TextStyle(fontSize: 28)),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Votre plan personnalisé',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$days jours • $_caloriesPerDay kcal/jour',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
+                const SizedBox(width: 4),
+                const Text('IA', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateSection(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('📅', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 10),
+              Text(
+                'Période',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppTheme.textDark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(child: _buildDateButton('Début', _startDate, _selectStartDate, isDark)),
+              const SizedBox(width: 12),
+              Expanded(child: _buildDateButton('Fin', _endDate, _selectEndDate, isDark)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDateButton(String label, DateTime date, VoidCallback onTap, bool isDark) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkSurfaceLight : Colors.grey[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey[200]!),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                color: isDark ? AppTheme.darkTextSecondary : Colors.grey[500],
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              DateFormatter.formatForDisplay(date),
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white : AppTheme.textDark,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDietTypeSection(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('🍽️', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 10),
+              Text(
+                'Type de régime',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppTheme.textDark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: _dietTypes.entries.map((entry) {
+              final isSelected = _selectedDietType == entry.key;
+              return GestureDetector(
+                onTap: () => setState(() => _selectedDietType = entry.key),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppTheme.primaryGreen.withOpacity(isDark ? 0.3 : 0.15)
+                        : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[100]),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected ? AppTheme.primaryGreen : Colors.transparent,
+                      width: 2,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(entry.value['emoji']!, style: const TextStyle(fontSize: 16)),
+                      const SizedBox(width: 8),
+                      Text(
+                        entry.value['label']!,
+                        style: TextStyle(
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? AppTheme.primaryGreen : (isDark ? Colors.white : AppTheme.textDark),
+                        ),
+                      ),
+                      if (isSelected) ...[
+                        const SizedBox(width: 6),
+                        const Icon(Icons.check_circle, color: AppTheme.primaryGreen, size: 18),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCaloriesSection(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey[200]!),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Text('🔥', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 10),
+              Text(
+                'Calories par jour',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppTheme.textDark,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '$_caloriesPerDay kcal',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppTheme.primaryGreen,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              activeTrackColor: AppTheme.primaryGreen,
+              inactiveTrackColor: isDark ? AppTheme.darkBorder : Colors.grey[200],
+              thumbColor: AppTheme.primaryGreen,
+              overlayColor: AppTheme.primaryGreen.withOpacity(0.2),
+              trackHeight: 6,
+            ),
+            child: Slider(
+              value: _caloriesPerDay.toDouble(),
+              min: 1200,
+              max: 3500,
+              divisions: 23,
+              onChanged: (value) => setState(() => _caloriesPerDay = value.toInt()),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchablePreferencesSection(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('🥗', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 10),
+              Text(
+                'Préférences & Allergies',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: isDark ? Colors.white : AppTheme.textDark,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Barre de recherche
+          Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkSurfaceLight : Colors.grey[50],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _searchQuery = value),
+              style: TextStyle(color: isDark ? Colors.white : AppTheme.textDark),
+              decoration: InputDecoration(
+                hintText: 'Rechercher...',
+                hintStyle: TextStyle(color: isDark ? AppTheme.darkTextTertiary : Colors.grey[400]),
+                prefixIcon: Icon(Icons.search, color: isDark ? AppTheme.darkTextSecondary : Colors.grey[500]),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, size: 20),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            ),
+          ),
+
+          // Sélections actuelles
+          if (_selectedPreferences.isNotEmpty || _selectedAllergies.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ..._selectedPreferences.map((key) {
+                  final item = _allPreferences[key];
+                  return _buildSelectedChip(key, item?['emoji'] ?? '🥗', item?['label'] ?? key, AppTheme.primaryGreen, isDark, isAllergy: false);
+                }),
+                ..._selectedAllergies.map((key) {
+                  final item = _allAllergies[key];
+                  return _buildSelectedChip(key, item?['emoji'] ?? '⚠️', item?['label'] ?? key, AppTheme.errorRed, isDark, isAllergy: true);
+                }),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 16),
+
+          // Préférences filtrées
+          Text(
+            'Préférences',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _getFilteredItems(_allPreferences, _selectedPreferences).map((entry) {
+              return _buildSelectableChip(
+                entry.key,
+                entry.value['emoji']!,
+                entry.value['label']!,
+                _selectedPreferences.contains(entry.key),
+                AppTheme.primaryGreen,
+                isDark,
+                () => setState(() {
+                  if (_selectedPreferences.contains(entry.key)) {
+                    _selectedPreferences.remove(entry.key);
+                  } else {
+                    _selectedPreferences.add(entry.key);
+                  }
+                }),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 16),
+
+          // Allergies filtrées
+          Text(
+            'Allergies à exclure',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppTheme.darkTextSecondary : Colors.grey[600],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _getFilteredItems(_allAllergies, _selectedAllergies).map((entry) {
+              return _buildSelectableChip(
+                entry.key,
+                entry.value['emoji']!,
+                entry.value['label']!,
+                _selectedAllergies.contains(entry.key),
+                AppTheme.errorRed,
+                isDark,
+                () => setState(() {
+                  if (_selectedAllergies.contains(entry.key)) {
+                    _selectedAllergies.remove(entry.key);
+                  } else {
+                    _selectedAllergies.add(entry.key);
+                  }
+                }),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<MapEntry<String, Map<String, String>>> _getFilteredItems(
+    Map<String, Map<String, String>> items,
+    Set<String> selected,
+  ) {
+    if (_searchQuery.isEmpty) return items.entries.toList();
+    return items.entries.where((entry) {
+      return entry.value['label']!.toLowerCase().contains(_searchQuery.toLowerCase());
+    }).toList();
+  }
+
+  Widget _buildSelectedChip(String key, String emoji, String label, Color color, bool isDark, {required bool isAllergy}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.2 : 0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                if (isAllergy) {
+                  _selectedAllergies.remove(key);
+                } else {
+                  _selectedPreferences.remove(key);
+                }
+              });
+            },
+            child: Icon(Icons.close, size: 16, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSelectableChip(
+    String key,
+    String emoji,
+    String label,
+    bool isSelected,
+    Color color,
+    bool isDark,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? color.withOpacity(isDark ? 0.2 : 0.1)
+              : (isDark ? AppTheme.darkSurfaceLight : Colors.grey[100]),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? color : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? color : (isDark ? Colors.white70 : Colors.grey[700]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Consumer<PlannerProvider>(
+          builder: (context, provider, child) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (provider.isLoading)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.auto_awesome, size: 16, color: AppTheme.primaryGreen),
+                        const SizedBox(width: 8),
+                        Text(
+                          'L\'IA génère vos recettes personnalisées...',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textMedium,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                SizedBox(
+                  height: 56,
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: provider.isLoading ? null : _generatePlan,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryGreen,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: AppTheme.primaryGreen.withOpacity(0.6),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: provider.isLoading
+                        ? const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              ),
+                              SizedBox(width: 12),
+                              Text(
+                                'Génération en cours...',
+                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: Colors.white),
+                              ),
+                            ],
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.auto_awesome, size: 22),
+                              SizedBox(width: 10),
+                              Text(
+                                'Générer mon plan',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _startDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() {
+        _startDate = picked;
+        if (_endDate.isBefore(_startDate)) {
+          _endDate = _startDate.add(const Duration(days: 6));
+        }
+      });
+    }
+  }
+
+  Future<void> _selectEndDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _endDate,
+      firstDate: _startDate,
+      lastDate: _startDate.add(const Duration(days: 30)),
+    );
+    if (picked != null) {
+      setState(() => _endDate = picked);
+    }
+  }
 }
+

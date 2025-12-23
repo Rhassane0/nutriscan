@@ -9,7 +9,7 @@ public class NutritionApiConfig {
     @Value("${edamam.nutrition.app-id:2f1a97ee}")
     private String appId;
 
-    @Value("${edamam.nutrition.app-key:a142242e62efb0ad2b8f7ecfd48d81f5}")
+    @Value("${edamam.nutrition.app-key:ca00bfd3d535acc5785e1d31d25d3caa}")
     private String appKey;
 
     @Value("${edamam.nutrition.base-url:https://api.edamam.com}")

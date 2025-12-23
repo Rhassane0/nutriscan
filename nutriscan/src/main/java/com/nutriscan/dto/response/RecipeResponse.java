@@ -29,12 +29,44 @@ public class RecipeResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class NutritionInfo {
+        // Macronutriments
         private Double calories;
         private Double protein;
         private Double fat;
         private Double carbs;
         private Double fiber;
         private Double sugar;
+        private Double saturatedFat;
+        private Double monounsaturatedFat;
+        private Double polyunsaturatedFat;
+        private Double transFat;
+        private Double cholesterol;
+        private Double sodium;
+
+        // Vitamines
+        private Double vitaminA;
+        private Double vitaminC;
+        private Double vitaminD;
+        private Double vitaminE;
+        private Double vitaminK;
+        private Double vitaminB6;
+        private Double vitaminB12;
+        private Double folate;
+        private Double niacin;
+        private Double riboflavin;
+        private Double thiamin;
+
+        // Minéraux
+        private Double calcium;
+        private Double iron;
+        private Double magnesium;
+        private Double phosphorus;
+        private Double potassium;
+        private Double zinc;
+        private Double selenium;
+
+        // Autres
+        private Double water;
     }
 }
 

@@ -1,135 +1,160 @@
 package com.nutriscan.controller;
 
-import com.nutriscan.dto.request.AIExplanationRequest;
-import com.nutriscan.dto.request.VisionAnalysisRequest;
-import com.nutriscan.dto.response.AIExplanationResponse;
-import com.nutriscan.dto.response.OffProductResponse;
-import com.nutriscan.dto.response.VisionAnalysisResponse;
+import com.nutriscan.dto.response.RecipeResponse;
 import com.nutriscan.security.CustomUserDetails;
-import com.nutriscan.service.AIService;
-import com.nutriscan.service.VisionService;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
+import com.nutriscan.service.GeminiAIService;
+import com.nutriscan.service.GeminiAIService.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Contrôleur pour toutes les fonctionnalités AI de NutriScan
+ * Utilise Gemma/Gemini pour:
+ * - Analyse nutritionnelle
+ * - Recommandations personnalisées
+ * - Génération de plans de repas
+ * - Conseils nutritionnels
+ * - Analyse d'images
+ * - Assistant chatbot
+ */
 @RestController
 @RequestMapping("/api/ai")
 @RequiredArgsConstructor
+@Slf4j
 public class AIController {
 
-    private final AIService aiService;
-    private final VisionService visionService;
+    private final GeminiAIService aiService;
 
     /**
-     * Scan product by barcode and get info (GET method).
+     * Obtenir des recommandations alimentaires personnalisées
      */
-    @GetMapping("/scan-barcode")
-    public ResponseEntity<OffProductResponse> scanByBarcodeGet(
+    @GetMapping("/recommendations")
+    public ResponseEntity<List<FoodRecommendation>> getRecommendations(
             @AuthenticationPrincipal CustomUserDetails currentUser,
-            @RequestParam("barcode") @NotBlank String barcode
+            @RequestParam(defaultValue = "LUNCH") String mealType
     ) {
-        OffProductResponse response = aiService.scanBarcodeAndAnalyze(barcode);
-        return ResponseEntity.ok(response);
+        log.info("🤖 Getting AI recommendations for user {} - {}", currentUser.getId(), mealType);
+        List<FoodRecommendation> recommendations = aiService.getPersonalizedRecommendations(
+                currentUser.getId(), mealType);
+        return ResponseEntity.ok(recommendations);
     }
 
     /**
-     * Scan product by barcode and get info (POST method for compatibility).
-     * Accepts barcode as query param OR in request body.
+     * Obtenir des conseils nutritionnels basés sur l'apport du jour
      */
-    @PostMapping("/scan-barcode")
-    public ResponseEntity<OffProductResponse> scanByBarcodePost(
+    @PostMapping("/advice")
+    public ResponseEntity<NutritionAdvice> getNutritionAdvice(
             @AuthenticationPrincipal CustomUserDetails currentUser,
-            @RequestParam(value = "barcode", required = false) String barcodeParam,
-            @RequestBody(required = false) java.util.Map<String, String> body
+            @RequestBody Map<String, Double> dailyIntake
     ) {
-        // Accept barcode from query param OR body
-        String barcode = barcodeParam;
-        if (barcode == null && body != null && body.containsKey("barcode")) {
-            barcode = body.get("barcode");
+        log.info("🤖 Getting AI nutrition advice for user {}", currentUser.getId());
+        NutritionAdvice advice = aiService.getNutritionAdvice(currentUser.getId(), dailyIntake);
+        return ResponseEntity.ok(advice);
+    }
+
+    /**
+     * Analyser des ingrédients et obtenir les informations nutritionnelles
+     */
+    @PostMapping("/analyze/ingredients")
+    public ResponseEntity<NutritionAnalysisResult> analyzeIngredients(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @RequestBody Map<String, Object> request
+    ) {
+        @SuppressWarnings("unchecked")
+        List<String> ingredients = (List<String>) request.get("ingredients");
+        if (ingredients == null || ingredients.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        log.info("🤖 Analyzing {} ingredients for user {}", ingredients.size(), currentUser.getId());
+        NutritionAnalysisResult result = aiService.analyzeIngredients(ingredients);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Analyser une image de repas
+     */
+    @PostMapping("/analyze/image")
+    public ResponseEntity<ImageAnalysisResult> analyzeImage(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @RequestBody Map<String, String> request
+    ) {
+        String imageBase64 = request.get("image");
+        if (imageBase64 == null || imageBase64.isEmpty()) {
+            return ResponseEntity.badRequest().build();
         }
 
-        if (barcode == null || barcode.isBlank()) {
-            throw new IllegalArgumentException("Barcode parameter is required (query param or body)");
+        log.info("🤖 Analyzing image for user {}", currentUser.getId());
+        ImageAnalysisResult result = aiService.analyzeImage(imageBase64);
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Générer des recettes personnalisées
+     */
+    @GetMapping("/recipes")
+    public ResponseEntity<List<RecipeResponse>> generateRecipes(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @RequestParam(defaultValue = "LUNCH") String mealType,
+            @RequestParam(defaultValue = "500") int calories,
+            @RequestParam(required = false) List<String> preferences,
+            @RequestParam(required = false) List<String> exclude
+    ) {
+        log.info("🤖 Generating AI recipes for user {} - {} ~{} cal", currentUser.getId(), mealType, calories);
+        List<RecipeResponse> recipes = aiService.generateRecipes(
+                currentUser.getId(), mealType, calories, preferences, exclude);
+        return ResponseEntity.ok(recipes);
+    }
+
+    /**
+     * Chat avec l'assistant nutritionnel
+     */
+    @PostMapping("/chat")
+    public ResponseEntity<Map<String, String>> chat(
+            @AuthenticationPrincipal CustomUserDetails currentUser,
+            @RequestBody Map<String, Object> request
+    ) {
+        String message = (String) request.get("message");
+        @SuppressWarnings("unchecked")
+        List<String> history = (List<String>) request.get("history");
+
+        if (message == null || message.isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("response", "Message vide"));
         }
 
-        OffProductResponse response = aiService.scanBarcodeAndAnalyze(barcode);
-        return ResponseEntity.ok(response);
-    }
+        log.info("🤖 AI Chat for user {}: {}", currentUser.getId(),
+                message.length() > 50 ? message.substring(0, 50) + "..." : message);
 
-    @GetMapping("/scan/barcode")
-    public ResponseEntity<OffProductResponse> scanByBarcode(
-            @AuthenticationPrincipal CustomUserDetails currentUser,
-            @RequestParam("code") @NotBlank String barcode
-    ) {
-        OffProductResponse response = aiService.scanBarcodeAndAnalyze(barcode);
-        return ResponseEntity.ok(response);
+        String response = aiService.chatWithAssistant(currentUser.getId(), message, history);
+        return ResponseEntity.ok(Map.of("response", response));
     }
 
     /**
-     * Analyse une photo de repas et détecte les aliments
-     * POST /api/v1/ai/analyze/meal-photo
+     * Obtenir un résumé nutritionnel intelligent
      */
-    @PostMapping("/analyze/meal-photo")
-    public ResponseEntity<VisionAnalysisResponse> analyzeMealPhoto(
+    @GetMapping("/summary")
+    public ResponseEntity<Map<String, Object>> getAISummary(
             @AuthenticationPrincipal CustomUserDetails currentUser,
-            @Valid @RequestBody VisionAnalysisRequest request
+            @RequestParam(required = false) String date
     ) {
-        VisionAnalysisResponse response = visionService.analyzeImage(request);
-        return ResponseEntity.ok(response);
-    }
+        log.info("🤖 Getting AI summary for user {}", currentUser.getId());
 
-    /**
-     * Get daily AI explanation via GET (with query param date).
-     */
-    @GetMapping("/explain/daily")
-    public ResponseEntity<AIExplanationResponse> explainDailyGet(
-            @AuthenticationPrincipal CustomUserDetails currentUser,
-            @RequestParam("date") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate date
-    ) {
-        AIExplanationResponse response = aiService.generateDailyExplanation(currentUser.getId(), date);
-        return ResponseEntity.ok(response);
-    }
+        // Créer un résumé basé sur les données de l'utilisateur
+        NutritionAdvice advice = aiService.getNutritionAdvice(currentUser.getId(), null);
+        List<FoodRecommendation> recommendations = aiService.getPersonalizedRecommendations(
+                currentUser.getId(), "SNACK");
 
-    /**
-     * Génère une explication IA pour le résumé d'une journée (POST).
-     */
-    @PostMapping("/explain/daily")
-    public ResponseEntity<AIExplanationResponse> explainDaily(
-            @AuthenticationPrincipal CustomUserDetails currentUser,
-            @Valid @RequestBody AIExplanationRequest request
-    ) {
-        AIExplanationResponse response = aiService.generateDailyExplanation(currentUser.getId(), request.getDate());
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Get product AI explanation via GET (with query param barcode).
-     */
-    @GetMapping("/explain/product")
-    public ResponseEntity<AIExplanationResponse> explainProductGet(
-            @AuthenticationPrincipal CustomUserDetails currentUser,
-            @RequestParam("barcode") @NotBlank String barcode
-    ) {
-        AIExplanationResponse response = aiService.generateProductExplanation(barcode, currentUser.getId());
-        return ResponseEntity.ok(response);
-    }
-
-    /**
-     * Génère une explication IA pour un produit (POST).
-     */
-    @PostMapping("/explain/product")
-    public ResponseEntity<AIExplanationResponse> explainProduct(
-            @AuthenticationPrincipal CustomUserDetails currentUser,
-            @RequestParam("barcode") @NotBlank String barcode
-    ) {
-        AIExplanationResponse response = aiService.generateProductExplanation(barcode, currentUser.getId());
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(Map.of(
+                "advice", advice,
+                "recommendations", recommendations,
+                "generatedAt", LocalDate.now().toString()
+        ));
     }
 }
-
-
-
 

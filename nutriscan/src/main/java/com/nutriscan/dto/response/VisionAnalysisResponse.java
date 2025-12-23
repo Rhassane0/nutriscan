@@ -25,8 +25,12 @@ public class VisionAnalysisResponse {
         private String name;
         private double confidence; // 0-100%
         private Double estimatedQuantityGrams;
+        private Double estimatedCalories;
+        private Double estimatedProteins;
+        private Double estimatedCarbs;
+        private Double estimatedFats;
         private Long suggestedFoodId; // ID de l'aliment dans la base si trouvé
-        private String matchStatus; // "AUTO_MATCHED", "CANDIDATES", "NOT_FOUND"
+        private String matchStatus; // "AUTO_MATCHED", "CANDIDATES", "NOT_FOUND", "DEMO"
         private List<FoodCandidate> candidates; // Candidates si confidence < 70%
     }
 
