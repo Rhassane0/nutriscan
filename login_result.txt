@@ -1,1 +1,0 @@
-{"status":500,"errorType":"INTERNAL_ERROR","message":"Une erreur interne s'est produite. Veuillez réessayer plus tard. (Détail: JSON parse error: Unexpected character ('e' (code 101)): was expecting double-quote to start field name)","timestamp":"2025-12-12T21:54:57.768444","path":"/api/auth/login"}

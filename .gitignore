@@ -51,8 +51,30 @@ nutriscan_front/web/favicon.png
 application-local.properties
 secrets/
 
-# ==== Test output ====
-test_output.txt
+# ==== Test files & scripts ====
+test_*.txt
+test_*.ps1
+test_*.json
+*_test.txt
+*_test.json
+*.log
+*_log.txt
+*_response.txt
+*_result.txt
+
+# ==== Temporary JSON files ====
+auth_login.json
+clean_login.json
+login_body.json
+gemini_request.json
+gemini_test.txt
+token_response.txt
+backend_log.txt
+
+# ==== Analysis output ====
+analysis_output.txt
+nutriscan_front/analysis_output.txt
+docs/errors
 
 # ==== Misc ====
 *.bak
