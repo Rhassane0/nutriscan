@@ -21,17 +21,18 @@ USER spring:spring
 # Copy JAR from build stage
 COPY --from=build /app/target/nutriscan-*.jar app.jar
 
-# Expose port
+# Expose port (Render uses PORT env variable)
 EXPOSE 8080
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/actuator/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=60s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-8080}/actuator/health || exit 1
 
-# Run application
+# Run application with environment variables for Render
 ENTRYPOINT ["java", \
   "-Djava.security.egd=file:/dev/./urandom", \
-  "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:prod}", \
+  "-Dserver.port=${PORT:-8080}", \
+  "-Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-prod}", \
   "-jar", \
   "app.jar"]
 
